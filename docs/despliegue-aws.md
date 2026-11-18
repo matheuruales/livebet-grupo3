@@ -9,6 +9,18 @@ El despliegue académico utiliza una sola instancia EC2 con Docker Compose. Mant
 - Volumen gp3 de 40 GiB.
 - IP pública elástica si la demostración requiere una URL estable.
 
+## Despliegue realizado para la entrega
+
+El 18 de noviembre de 2026 se aprovisionó y verificó una instancia EC2 `m7i-flex.large` en `us-east-2`, con Ubuntu 24.04, volumen gp3 de 40 GiB y Docker Compose. La cuenta académica restringe los tipos de instancia disponibles; por ello se utilizó este tipo en lugar de `t3.xlarge`.
+
+- Dashboard: <http://18.189.178.18:8080>
+- API: <http://18.189.178.18:8081>
+- Instancia: `i-02a7ef9138c943273`
+
+La prueba integral en AWS registró la apuesta `b-cdb8f691` por 20.000 COP en el partido `m-1c7fafee`. El partido terminó con ganador Nacional y el dashboard confirmó una apuesta y un total de 20.000 COP.
+
+La IP es pública pero no elástica: cambiará si la instancia se detiene y vuelve a iniciar. Detener o terminar la instancia después de la exposición evita cargos.
+
 ## Grupo de seguridad
 
 | Puerto | Origen | Uso |
@@ -32,6 +44,14 @@ sudo usermod -aG docker ubuntu
 Cerrar la sesión SSH y volver a entrar para aplicar el grupo `docker`.
 
 ## Publicación
+
+El script reproducible `scripts/aws-provision.sh` automatiza la creación del grupo de seguridad, el empaquetado, la instalación de Docker y el arranque. También admite cambiar el tipo de instancia mediante `INSTANCE_TYPE`.
+
+```bash
+AWS_REGION=us-east-2 INSTANCE_TYPE=m7i-flex.large ./scripts/aws-provision.sh
+```
+
+Como alternativa manual:
 
 ```bash
 git clone URL_DEL_REPOSITORIO live-betting

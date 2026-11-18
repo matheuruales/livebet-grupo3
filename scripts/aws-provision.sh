@@ -45,7 +45,8 @@ docker compose up --build -d
 EOF
 
 AMI_ID="$(aws ssm get-parameter --region "$REGION" --name /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id --query Parameter.Value --output text)"
-INSTANCE_ID="$(aws ec2 run-instances --region "$REGION" --image-id "$AMI_ID" --instance-type t3.xlarge \
+INSTANCE_TYPE="${INSTANCE_TYPE:-m7i-flex.large}"
+INSTANCE_ID="$(aws ec2 run-instances --region "$REGION" --image-id "$AMI_ID" --instance-type "$INSTANCE_TYPE" \
   --network-interfaces "AssociatePublicIpAddress=true,DeviceIndex=0,Groups=$SG_ID,SubnetId=$SUBNET_ID" \
   --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}' \
   --metadata-options HttpTokens=required,HttpEndpoint=enabled \

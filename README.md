@@ -67,6 +67,13 @@ Accesos locales:
 - Kafka externo: `localhost:9092`
 - PostgreSQL externo: `localhost:55432`
 
+Despliegue de entrega verificado en AWS (18 de noviembre de 2026):
+
+- Dashboard: <http://18.189.178.18:8080>
+- API: <http://18.189.178.18:8081>
+
+La IP de EC2 no es elástica y puede cambiar después de detener la instancia. Consulte la guía de AWS para reproducir el despliegue.
+
 Las credenciales de desarrollo se encuentran en `.env`. Cambie todos los secretos antes de desplegar.
 
 ## Realizar una apuesta
