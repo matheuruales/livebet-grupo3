@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LiveBet, plataforma distribuida de apuestas deportivas en vivo">
+  <meta name="description" content="LiveBet, apuestas deportivas en vivo, resultados y premios al instante">
   <title>LiveBet — La cancha nunca se detiene</title><link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -13,8 +13,8 @@
   <div id="userSession" class="session hidden"><span id="userBalance" class="balance">$0</span><span id="userAvatar" class="avatar">U</span><span id="userName" class="user-name"><b>Usuario</b></span><button id="logout" class="btn btn-small">Salir</button></div>
 </nav></header>
 <section id="inicio" class="hero"><div class="container hero-inner">
-  <div><span class="eyebrow"><i></i> APUESTAS EN VIVO · EVENT SOURCING</span><h1>VIVE EL<br><span>PARTIDO.</span></h1><p class="hero-copy">Elige tu equipo, registra tu jugada y sigue el resultado en tiempo real. Una experiencia distribuida respaldada por Kafka, RabbitMQ y PostgreSQL.</p><div class="hero-actions"><button class="btn btn-orange" id="heroBet">Apostar ahora →</button><button class="btn btn-blue" data-open-auth="register">Recibe $250.000 demo</button></div><div class="trust"><span><i></i> Datos en tiempo real</span><span><i></i> Saldo protegido</span><span><i></i> Historial personal</span></div></div>
-  <div class="hero-art" aria-hidden="true"><div class="burst"></div><div class="ticket"><div class="ticket-head"><span>LIVEBET · BOLETO</span><span class="live-pill">● EN VIVO</span></div><div class="versus"><span class="team-badge">A</span><span class="vs">VS</span><span class="team-badge">B</span></div><div class="ticket-row"><b>Tu selección</b><span>Equipo A</span></div><div class="ticket-foot"><span>CUOTA FIJA 2.0</span><span class="odds">GANANCIA x2</span></div></div><span class="sticker one">KAFKA ✓</span><span class="sticker two">100% EN VIVO</span></div>
+  <div><span class="eyebrow"><i></i> APUESTAS DEPORTIVAS EN VIVO</span><h1>VIVE EL<br><span>PARTIDO.</span></h1><p class="hero-copy">Elige tu equipo, haz tu jugada y celebra cada resultado. Partidos en vivo, cuotas claras y premios acreditados directamente a tu saldo.</p><div class="hero-actions"><button class="btn btn-orange" id="heroBet">Apostar ahora →</button><button class="btn btn-blue" data-open-auth="register">Crear mi cuenta</button></div><div class="trust"><span><i></i> Partidos en vivo</span><span><i></i> Saldo protegido</span><span><i></i> Premios al instante</span></div></div>
+  <div class="hero-art" aria-hidden="true"><div class="burst"></div><div class="ticket"><div class="ticket-head"><span>LIVEBET · BOLETO</span><span class="live-pill">● EN VIVO</span></div><div class="versus"><span class="team-badge">A</span><span class="vs">VS</span><span class="team-badge">B</span></div><div class="ticket-row"><b>Tu selección</b><span>Equipo A</span></div><div class="ticket-foot"><span>CUOTA FIJA 2.0</span><span class="odds">GANANCIA x2</span></div></div><span class="sticker one">PREMIO x2</span><span class="sticker two">100% EN VIVO</span></div>
 </div></section>
 <main>
   <section id="matchesView" class="container dashboard"><div class="section-head"><div><h2>Centro de partidos</h2><p>Los eventos se actualizan automáticamente. Selecciona un equipo mientras el partido esté abierto.</p></div><span id="connection" class="connection"><i></i><span>Conectando…</span></span></div>
@@ -24,21 +24,21 @@
   </section>
   <section id="historyView" class="container panel hidden"><div class="section-head"><div><h2>Mis apuestas</h2><p>Consulta tus selecciones, montos y estado de procesamiento.</p></div><button class="btn btn-blue" id="refreshHistory">Actualizar</button></div><div class="panel-card"><div id="historyList" class="history-list"></div></div></section>
   <section id="rechargeView" class="container panel recharge-view hidden">
-    <div class="section-head"><div><span class="eyebrow"><i></i> PASARELA DEMO</span><h2>Recargar saldo</h2><p>Simula un pago con tarjeta y recibe el saldo inmediatamente en tu cuenta LiveBet.</p></div><div class="current-balance"><span>SALDO ACTUAL</span><b id="rechargeBalance">$0</b></div></div>
+    <div class="section-head"><div><span class="eyebrow"><i></i> PAGOS LIVEBET</span><h2>Recargar saldo</h2><p>Agrega fondos a tu cuenta de forma rápida y continúa disfrutando tus partidos favoritos.</p></div><div class="current-balance"><span>SALDO ACTUAL</span><b id="rechargeBalance">$0</b></div></div>
     <div class="recharge-grid">
       <div class="payment-card-wrap">
         <div class="credit-card"><div class="card-top"><span class="card-chip"></span><b>LIVEBET</b></div><div id="cardPreviewNumber" class="card-number">•••• •••• •••• 4242</div><div class="card-bottom"><div><small>TITULAR</small><b id="cardPreviewName">TU NOMBRE</b></div><div><small>VENCE</small><b id="cardPreviewExpiry">MM/AA</b></div></div></div>
-        <div class="demo-notice"><b>Pago 100% ficticio</b><p>No uses una tarjeta real. Para probar utiliza <strong>4242 4242 4242 4242</strong>, cualquier CVV y una fecha futura.</p></div>
+        <div class="demo-notice"><b>Recarga rápida y segura</b><p>Utiliza la tarjeta habilitada <strong>4242 4242 4242 4242</strong>, una fecha futura y tu código de seguridad.</p></div>
       </div>
       <div class="panel-card recharge-form-card">
         <form id="rechargeForm" class="form">
           <div class="field"><label for="rechargeAmount">Monto de la recarga</label><div class="money-input"><span>$</span><input id="rechargeAmount" type="number" min="5000" max="2000000" step="1000" value="50000" required></div></div>
-          <div class="quick-amounts recharge-amounts"><button type="button" data-recharge-amount="20000">$20K</button><button type="button" data-recharge-amount="50000">$50K</button><button type="button" data-recharge-amount="100000">$100K</button><button type="button" data-recharge-amount="250000">$250K</button></div>
+          <div class="quick-amounts recharge-amounts"><button type="button" data-recharge-amount="20000">$20K</button><button class="active" type="button" data-recharge-amount="50000">$50K</button><button type="button" data-recharge-amount="100000">$100K</button><button type="button" data-recharge-amount="250000">$250K</button></div>
           <div class="field"><label for="cardholder">Nombre del titular</label><input id="cardholder" autocomplete="cc-name" maxlength="80" placeholder="Como aparece en la tarjeta" required></div>
-          <div class="field"><label for="cardNumber">Número de tarjeta ficticia</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" required></div>
+          <div class="field"><label for="cardNumber">Número de tarjeta</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" required></div>
           <div class="card-fields"><div class="field"><label for="cardExpiry">Vencimiento</label><input id="cardExpiry" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/AA" required></div><div class="field"><label for="cardCvv">CVV</label><input id="cardCvv" type="password" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123" required></div></div>
-          <label class="fake-check"><input id="demoPaymentCheck" type="checkbox" required><span>Entiendo que esta es una simulación y no procesa dinero real.</span></label>
-          <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Simular pago y recargar →</button>
+          <p class="payment-security">🔒 Tus datos están protegidos y no almacenamos el número completo de tu tarjeta.</p>
+          <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Pagar y recargar →</button>
         </form>
         <div id="rechargeSuccess" class="recharge-success hidden"><span>✓</span><h3>¡Recarga aprobada!</h3><p id="rechargeSuccessText"></p><button class="btn btn-blue" data-view="matches">Volver a los partidos</button></div>
       </div>
@@ -49,6 +49,6 @@
 <dialog id="authDialog"><div class="modal"><div class="modal-head"><div><span class="eyebrow"><i></i> BIENVENIDO</span><h2 id="authTitle">Iniciar sesión</h2></div><button class="modal-close" data-close>×</button></div><div class="tabs"><button id="loginTab" class="active">Entrar</button><button id="registerTab">Registrarme</button></div><form id="authForm" class="form"><div id="nameField" class="field hidden"><label for="authName">Nombre completo</label><input id="authName" autocomplete="name" minlength="3" placeholder="Tu nombre"></div><div class="field"><label for="authEmail">Correo electrónico</label><input id="authEmail" type="email" required autocomplete="email" placeholder="tu@correo.com"></div><div class="field"><label for="authPassword">Contraseña</label><input id="authPassword" type="password" required minlength="8" autocomplete="current-password" placeholder="Mínimo 8 caracteres"></div><p id="authError" class="form-error"></p><button class="btn btn-orange" type="submit" id="authSubmit">Entrar a LiveBet</button></form></div></dialog>
 <dialog id="betDialog"><div class="modal"><div class="modal-head"><div><span class="eyebrow"><i></i> NUEVA APUESTA</span><h2>Confirma tu jugada</h2></div><button class="modal-close" data-close>×</button></div><div id="betSummary" class="bet-summary"></div><form id="betForm" class="form"><div class="field"><label for="betTeam">Equipo seleccionado</label><select id="betTeam"></select></div><div class="field"><label for="betAmount">Monto en COP</label><input id="betAmount" type="number" min="1000" step="1000" value="10000" required></div><div class="quick-amounts"><button type="button" data-amount="5000">$5K</button><button type="button" data-amount="10000">$10K</button><button type="button" data-amount="25000">$25K</button><button type="button" data-amount="50000">$50K</button></div><p id="betError" class="form-error"></p><button class="btn btn-orange" type="submit">Registrar apuesta →</button></form></div></dialog>
 <div id="toast" class="toast"></div>
-<footer><div class="container footer-inner"><div><b>LIVE<span>BET</span></b><p>Plataforma de apuestas deportivas en vivo · Grupo 3 · Sexto B</p></div><p>Kafka · RabbitMQ · PostgreSQL · Spring Boot · WebSocket</p></div></footer>
+<footer><div class="container footer-inner"><div><b>LIVE<span>BET</span></b><p>La emoción del deporte se vive en cada jugada.</p></div><p>Apuestas en vivo · Resultados al instante · Premios directos</p></div></footer>
 <script src="/app.js"></script>
 </body></html>
