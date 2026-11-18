@@ -71,8 +71,12 @@ Accesos locales:
 
 Despliegue de entrega verificado en AWS (18 de noviembre de 2026):
 
-- Dashboard: <http://18.189.178.18:8080>
-- API: <http://18.189.178.18:8081>
+- Dashboard: <http://18.224.52.92:8080>
+- API: <http://18.224.52.92:8081>
+
+En esta versión se verificaron en la nube el registro, el inicio de sesión, la
+autorización por roles, el panel administrativo, la consulta del historial y
+una apuesta autenticada con débito de saldo.
 
 La IP de EC2 no es elástica y puede cambiar después de detener la instancia. Consulte la guía de AWS para reproducir el despliegue.
 

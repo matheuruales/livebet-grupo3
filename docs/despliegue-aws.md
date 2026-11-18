@@ -13,11 +13,16 @@ El despliegue académico utiliza una sola instancia EC2 con Docker Compose. Mant
 
 El 18 de noviembre de 2026 se aprovisionó y verificó una instancia EC2 `m7i-flex.large` en `us-east-2`, con Ubuntu 24.04, volumen gp3 de 40 GiB y Docker Compose. La cuenta académica restringe los tipos de instancia disponibles; por ello se utilizó este tipo en lugar de `t3.xlarge`.
 
-- Dashboard: <http://18.189.178.18:8080>
-- API: <http://18.189.178.18:8081>
-- Instancia: `i-02a7ef9138c943273`
+- Dashboard: <http://18.224.52.92:8080>
+- API: <http://18.224.52.92:8081>
+- Instancia: `i-0e23ab3097f20bc1d`
 
-La prueba integral en AWS registró la apuesta `b-cdb8f691` por 20.000 COP en el partido `m-1c7fafee`. El partido terminó con ganador Nacional y el dashboard confirmó una apuesta y un total de 20.000 COP.
+La prueba integral de la versión 2 en AWS creó un usuario, inició sesión,
+comprobó que un usuario normal no pudiera acceder a la administración, inició
+sesión con el rol `ADMIN` y consultó la lista de usuarios. Finalmente registró
+la apuesta `b-2b91743c` por 20.000 COP a favor de América en el partido
+`m-fa123d0d`; el saldo bajó de 250.000 a 230.000 COP y el historial personal
+guardó la operación.
 
 La IP es pública pero no elástica: cambiará si la instancia se detiene y vuelve a iniciar. Detener o terminar la instancia después de la exposición evita cargos.
 
