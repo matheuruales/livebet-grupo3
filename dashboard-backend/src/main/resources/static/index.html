@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="LiveBet, apuestas deportivas en vivo, resultados y premios al instante">
-  <title>LiveBet — La cancha nunca se detiene</title><link rel="stylesheet" href="/styles.css">
+  <title>LiveBet — La cancha nunca se detiene</title><link rel="stylesheet" href="/styles.css?v=20261118-roulette">
 </head>
 <body>
 <header class="topbar"><nav class="container nav">
   <a class="brand" href="#inicio"><span class="logo">⚡</span><span>LIVE<em>BET</em></span></a>
-  <div class="links"><button data-view="matches" class="active">Partidos</button><button data-view="history" class="auth-only hidden">Mis apuestas</button><button data-view="recharge" class="auth-only hidden">Recargar saldo</button><button data-view="admin" class="admin-only hidden">Administración</button></div>
+  <div class="links"><button data-view="matches" class="active">Partidos</button><button data-view="roulette">Ruleta en vivo</button><button data-view="history" class="auth-only hidden">Mis apuestas</button><button data-view="recharge" class="auth-only hidden">Recargar saldo</button><button data-view="admin" class="admin-only hidden">Administración</button></div>
   <div id="guestSession" class="session"><button class="btn btn-blue btn-small" data-open-auth="login">Entrar</button><button class="btn btn-orange btn-small" data-open-auth="register">Crear cuenta</button></div>
   <div id="userSession" class="session hidden"><span id="userBalance" class="balance">$0</span><span id="userAvatar" class="avatar">U</span><span id="userName" class="user-name"><b>Usuario</b></span><button id="logout" class="btn btn-small">Salir</button></div>
 </nav></header>
@@ -21,6 +21,36 @@
     <div class="stats"><div class="stat"><b id="openCount">0</b><span>ABIERTOS</span></div><div class="stat"><b id="closedCount">0</b><span>FINALIZADOS</span></div><div class="stat"><b id="totalBets">$0</b><span>TOTAL APOSTADO</span></div><div class="stat"><b id="myBalance">—</b><span>MI SALDO</span></div></div>
     <div class="subhead"><h3>Ahora en vivo</h3><span id="liveCount">0</span></div><div id="openMatches" class="match-grid"></div>
     <div class="subhead"><h3>Resultados recientes</h3><span>ÚLTIMOS</span></div><div id="closedMatches" class="match-grid"></div>
+  </section>
+  <section id="rouletteView" class="roulette-view hidden">
+    <div class="container roulette-stage">
+      <div class="roulette-heading"><div><span class="casino-kicker"><i></i> MESA COMPARTIDA · EN VIVO</span><h2>Ruleta LiveBet</h2><p>Una misma ronda para todos. Elige tu jugada antes de que cierre la mesa.</p></div><div class="roulette-round-meta"><span id="rouletteStatus">PREPARANDO</span><b id="rouletteTimer">00:00</b><small id="rouletteRoundId">NUEVA RONDA</small></div></div>
+      <div class="roulette-layout">
+        <div class="roulette-showcase">
+          <div class="wheel-area" aria-label="Ruleta europea en vivo">
+            <div class="wheel-pointer" aria-hidden="true"></div>
+            <div id="rouletteWheel" class="roulette-wheel"><div class="wheel-rim"></div><div id="wheelNumbers" class="wheel-numbers"></div><div class="wheel-center"><span>LIVE</span><b id="wheelResult">BET</b></div></div>
+          </div>
+          <div class="recent-strip"><span>ÚLTIMOS</span><div id="rouletteRecent" class="recent-numbers"><i>—</i></div></div>
+          <div class="live-table-note"><i></i><span id="rouletteMessage">Conectando con la mesa…</span></div>
+        </div>
+        <div class="roulette-console">
+          <div class="roulette-board-wrap">
+            <div class="roulette-board" id="rouletteBoard"><button class="number zero" data-rtype="NUMBER" data-rvalue="0">0</button><div id="rouletteNumbers" class="number-grid"></div></div>
+            <div class="outside-bets">
+              <button data-rtype="DOZEN" data-rvalue="FIRST">1.ª DOCENA <small>x3</small></button><button data-rtype="DOZEN" data-rvalue="SECOND">2.ª DOCENA <small>x3</small></button><button data-rtype="DOZEN" data-rvalue="THIRD">3.ª DOCENA <small>x3</small></button>
+              <button data-rtype="RANGE" data-rvalue="LOW">1–18 <small>x2</small></button><button data-rtype="PARITY" data-rvalue="EVEN">PAR <small>x2</small></button><button class="red-bet" data-rtype="COLOR" data-rvalue="RED">ROJO <small>x2</small></button><button class="black-bet" data-rtype="COLOR" data-rvalue="BLACK">NEGRO <small>x2</small></button><button data-rtype="PARITY" data-rvalue="ODD">IMPAR <small>x2</small></button><button data-rtype="RANGE" data-rvalue="HIGH">19–36 <small>x2</small></button>
+            </div>
+          </div>
+          <div class="betting-tray">
+            <div class="tray-section"><span>VALOR DE FICHA</span><div class="roulette-chips"><button data-chip="1000">$1K</button><button class="active" data-chip="5000">$5K</button><button data-chip="10000">$10K</button><button data-chip="25000">$25K</button></div></div>
+            <div class="roulette-slip"><div><span>TU JUGADA</span><b id="rouletteSelection">Selecciona una casilla</b><small id="roulettePotential">Premio potencial: —</small></div><button id="placeRouletteBet" disabled>Apostar $5.000</button></div>
+            <p id="rouletteError" class="roulette-error" role="alert"></p>
+          </div>
+          <div class="roulette-history"><div class="roulette-history-head"><h3>Mis jugadas recientes</h3><span id="rouletteBetCount">0</span></div><div id="rouletteBetList"><p>Inicia sesión para ver tus jugadas.</p></div></div>
+        </div>
+      </div>
+    </div>
   </section>
   <section id="historyView" class="container panel hidden"><div class="section-head"><div><h2>Mis apuestas</h2><p>Consulta tus selecciones, montos y estado de procesamiento.</p></div><button class="btn btn-blue" id="refreshHistory">Actualizar</button></div><div class="panel-card"><div id="historyList" class="history-list"></div></div></section>
   <section id="rechargeView" class="container panel recharge-view hidden">
@@ -50,5 +80,5 @@
 <dialog id="betDialog"><div class="modal"><div class="modal-head"><div><span class="eyebrow"><i></i> NUEVA APUESTA</span><h2>Confirma tu jugada</h2></div><button class="modal-close" data-close>×</button></div><div id="betSummary" class="bet-summary"></div><form id="betForm" class="form"><div class="field"><label for="betTeam">Equipo seleccionado</label><select id="betTeam"></select></div><div class="field"><label for="betAmount">Monto en COP</label><input id="betAmount" type="number" min="1000" step="1000" value="10000" required></div><div class="quick-amounts"><button type="button" data-amount="5000">$5K</button><button type="button" data-amount="10000">$10K</button><button type="button" data-amount="25000">$25K</button><button type="button" data-amount="50000">$50K</button></div><p id="betError" class="form-error"></p><button class="btn btn-orange" type="submit">Registrar apuesta →</button></form></div></dialog>
 <div id="toast" class="toast"></div>
 <footer><div class="container footer-inner"><div><b>LIVE<span>BET</span></b><p>La emoción del deporte se vive en cada jugada.</p></div><p>Apuestas en vivo · Resultados al instante · Premios directos</p></div></footer>
-<script src="/app.js"></script>
+<script src="/app.js?v=20261118-roulette"></script>
 </body></html>

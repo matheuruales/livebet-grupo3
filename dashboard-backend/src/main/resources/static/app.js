@@ -1,6 +1,9 @@
 const API=`${location.protocol}//${location.hostname}:8081/api`,matches=new Map();
 const money=new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0});
 let token=localStorage.getItem('livebet_token'),user=JSON.parse(localStorage.getItem('livebet_user')||'null'),authMode='login',selectedMatch=null,currentView='matches';
+let rouletteState=null,rouletteSelection=null,rouletteChip=5000,rouletteClockOffset=0,settledRouletteRound=null;
+const rouletteOrder=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const redNumbers=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 async function api(path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch(API+path,{...options,headers});let body={};try{body=await response.json()}catch{}if(!response.ok){if(response.status===401&&token)logout(false);throw new Error(body.detail||body.error||'No fue posible completar la solicitud')}return body}
@@ -20,6 +23,63 @@ function updateTimers(){const now=Date.now();$$('.match-clock').forEach(el=>{con
 function render(){const open=[],closed=[];let total=0;for(const m of matches.values()){total+=Number(m.totalBet||0);(m.status==='OPEN_FOR_BETS'?open:closed).push(m)}$('#openCount').textContent=open.length;$('#liveCount').textContent=open.length;$('#closedCount').textContent=closed.length;$('#totalBets').textContent=money.format(total);$('#openMatches').innerHTML=open.length?open.sort((a,b)=>String(a.endsAt).localeCompare(String(b.endsAt))).map(card).join(''):'<div class="empty">Preparando el próximo partido…</div>';$('#closedMatches').innerHTML=closed.length?closed.sort((a,b)=>String(b.occurredAt).localeCompare(String(a.occurredAt))).slice(0,9).map(card).join(''):'<div class="empty">Todavía no hay resultados finales.</div>';updateTimers()}
 async function loadMatches(){try{(await (await fetch('/api/matches')).json()).forEach(m=>matches.set(m.matchId,m));render()}catch{toast('No se pudieron cargar los partidos',true)}}
 function connect(){const ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);ws.onopen=()=>{$('#connection').classList.add('connected');$('#connection span').textContent='En tiempo real'};ws.onmessage=e=>{const m=JSON.parse(e.data);matches.set(m.matchId,m);render()};ws.onclose=()=>{$('#connection').classList.remove('connected');$('#connection span').textContent='Reconectando…';setTimeout(connect,2000)}}
+
+function initRoulette(){
+  $('#rouletteNumbers').innerHTML=Array.from({length:36},(_,i)=>{const n=i+1;return `<button class="number ${redNumbers.has(n)?'red':'black'}" data-rtype="NUMBER" data-rvalue="${n}">${n}</button>`}).join('');
+  const sector=360/rouletteOrder.length;
+  $('#rouletteWheel').style.background=`conic-gradient(from ${-sector/2}deg,${rouletteOrder.map((n,i)=>`${n===0?'#15955b':redNumbers.has(n)?'#df3f51':'#1e2025'} ${i*sector}deg ${(i+1)*sector}deg`).join(',')})`;
+  $('#wheelNumbers').innerHTML=rouletteOrder.map((n,i)=>`<span style="--angle:${i*sector}deg"><b>${n}</b></span>`).join('');
+  $('#wheelNumbers').innerHTML=rouletteOrder.map((n,i)=>`<span style="transform:rotate(${i*sector}deg) translateY(-46%)"><b style="transform:rotate(${-i*sector}deg)">${n}</b></span>`).join('');
+}
+function rouletteLabel(type,value){if(type==='NUMBER')return `Número ${value}`;return {RED:'Rojo',BLACK:'Negro',EVEN:'Par',ODD:'Impar',LOW:'1–18',HIGH:'19–36',FIRST:'1.ª docena',SECOND:'2.ª docena',THIRD:'3.ª docena'}[value]||value}
+function rouletteMultiplier(type){return type==='NUMBER'?36:type==='DOZEN'?3:2}
+function selectRoulette(type,value,button){
+  rouletteSelection={type,value,label:rouletteLabel(type,value),multiplier:rouletteMultiplier(type)};
+  $$('[data-rtype]').forEach(el=>el.classList.toggle('selected',el===button));
+  $('#rouletteSelection').textContent=rouletteSelection.label;
+  $('#roulettePotential').textContent=`Premio potencial: ${money.format(rouletteChip*rouletteSelection.multiplier)}`;
+  updateRouletteBetButton();
+}
+function selectRouletteChip(amount,button){rouletteChip=Number(amount);$$('[data-chip]').forEach(el=>el.classList.toggle('active',el===button));if(rouletteSelection)$('#roulettePotential').textContent=`Premio potencial: ${money.format(rouletteChip*rouletteSelection.multiplier)}`;updateRouletteBetButton()}
+function updateRouletteBetButton(){const button=$('#placeRouletteBet'),open=rouletteState?.status==='BETTING';button.disabled=!rouletteSelection||!open;button.textContent=rouletteSelection?`Apostar ${money.format(rouletteChip)}`:'Elige una jugada'}
+async function loadRoulette(silent=false){
+  try{
+    const state=await api('/roulette/round');rouletteState=state;rouletteClockOffset=Date.parse(state.serverTime)-Date.now();renderRoulette();
+    if(token)loadRouletteBets(true);
+  }catch(err){if(!silent)$('#rouletteError').textContent=err.message}
+}
+function renderRoulette(){
+  if(!rouletteState?.roundId)return;
+  $('#rouletteRoundId').textContent=`RONDA ${rouletteState.roundId.toUpperCase()}`;
+  const status={BETTING:'APUESTAS ABIERTAS',SPINNING:'GIRANDO',SETTLED:'RESULTADO'}[rouletteState.status]||'PREPARANDO';
+  $('#rouletteStatus').textContent=status;$('#rouletteStatus').className=rouletteState.status.toLowerCase();
+  $('#rouletteMessage').textContent=rouletteState.status==='BETTING'?'La mesa está abierta. Haz tu jugada.':rouletteState.status==='SPINNING'?'No va más. La ruleta está girando para todos.':`Resultado de la ronda: ${rouletteState.result} ${rouletteState.resultColor==='RED'?'rojo':rouletteState.resultColor==='BLACK'?'negro':'verde'}.`;
+  $('#wheelResult').textContent=rouletteState.status==='SETTLED'?rouletteState.result:'BET';
+  $('#rouletteRecent').innerHTML=rouletteState.recentResults?.length?rouletteState.recentResults.map(n=>`<i class="${n===0?'green':redNumbers.has(n)?'red':'black'}">${n}</i>`).join(''):'<i>—</i>';
+  if(rouletteState.status!=='BETTING')$$('[data-rtype]').forEach(el=>el.classList.remove('selected'));
+  updateRouletteBetButton();
+  if(rouletteState.status==='SETTLED'&&settledRouletteRound!==rouletteState.roundId){settledRouletteRound=rouletteState.roundId;if(token){setTimeout(refreshMe,450);setTimeout(()=>loadRouletteBets(true),450)}}
+}
+function updateRouletteAnimation(){
+  if(!rouletteState?.roundId)return;
+  const now=Date.now()+rouletteClockOffset,closes=Date.parse(rouletteState.closesAt),resolves=Date.parse(rouletteState.resolvesAt),next=Date.parse(rouletteState.nextRoundAt);
+  let remaining,label,angle=0;
+  if(rouletteState.status==='BETTING'){remaining=Math.max(0,closes-now);label='CIERRA EN'}
+  else if(rouletteState.status==='SPINNING'){remaining=Math.max(0,resolves-now);label='RESULTADO EN';const duration=resolves-closes,p=Math.min(1,Math.max(0,(now-closes)/duration)),eased=1-Math.pow(1-p,3),index=Math.max(0,rouletteOrder.indexOf(rouletteState.result));angle=eased*(2160-index*(360/37))}
+  else{remaining=Math.max(0,next-now);label='NUEVA RONDA EN';const index=Math.max(0,rouletteOrder.indexOf(rouletteState.result));angle=2160-index*(360/37)}
+  $('#rouletteWheel').style.transform=`rotate(${angle}deg)`;
+  $('#rouletteTimer').textContent=`${label} ${String(Math.ceil(remaining/1000)).padStart(2,'0')}s`;
+}
+async function placeRouletteBet(){
+  if(!user){openAuth('login');toast('Inicia sesión para jugar en la ruleta');return}
+  if(!rouletteSelection||rouletteState?.status!=='BETTING')return;
+  const button=$('#placeRouletteBet');button.disabled=true;$('#rouletteError').textContent='';
+  try{const data=await api('/roulette/bets',{method:'POST',body:JSON.stringify({roundId:rouletteState.roundId,selectionType:rouletteSelection.type,selectionValue:rouletteSelection.value,amount:rouletteChip})});user.balance=data.balance;localStorage.setItem('livebet_user',JSON.stringify(user));updateSession();toast(`${data.selection}: apuesta de ${money.format(data.amount)} confirmada`);loadRouletteBets(true);loadRoulette(true)}catch(err){$('#rouletteError').textContent=err.message}finally{updateRouletteBetButton()}
+}
+async function loadRouletteBets(silent=false){
+  if(!token){$('#rouletteBetCount').textContent='0';$('#rouletteBetList').innerHTML='<p>Inicia sesión para ver tus jugadas.</p>';return}
+  try{const bets=await api('/roulette/bets');$('#rouletteBetCount').textContent=bets.length;$('#rouletteBetList').innerHTML=bets.length?bets.slice(0,6).map(b=>`<article><div><b>${esc(b.selection)}</b><small>${esc(b.roundId)}</small></div><span>${money.format(b.amount)}</span><em class="${b.status.toLowerCase()}">${b.status==='PENDING'?'EN JUEGO':b.status==='WON'?`+${money.format(b.payout)}`:'SIN PREMIO'}</em></article>`).join(''):'<p>Aún no tienes jugadas en la ruleta.</p>'}catch(err){if(!silent)$('#rouletteError').textContent=err.message}
+}
 
 function openBet(matchId,team){if(!user){openAuth('login');toast('Inicia sesión para apostar');return}selectedMatch=matches.get(matchId);if(!selectedMatch||selectedMatch.status!=='OPEN_FOR_BETS'){toast('Este partido ya cerró',true);return}$('#betSummary').innerHTML=`<b>${esc(selectedMatch.teams[0])} vs ${esc(selectedMatch.teams[1])}</b><br><span class="muted">Saldo disponible: ${money.format(user.balance)}</span>`;$('#betTeam').innerHTML=selectedMatch.teams.map(t=>`<option ${t===team?'selected':''}>${esc(t)}</option>`).join('');$('#betError').textContent='';$('#betDialog').showModal()}
 $('#betForm').addEventListener('submit',async e=>{e.preventDefault();$('#betError').textContent='';try{const data=await api('/bets',{method:'POST',body:JSON.stringify({matchId:selectedMatch.matchId,betOn:$('#betTeam').value,amount:Number($('#betAmount').value)})});user.balance=data.balance;localStorage.setItem('livebet_user',JSON.stringify(user));updateSession();$('#betDialog').close();toast(`Apuesta ${data.betId} registrada correctamente`)}catch(err){$('#betError').textContent=err.message}});
@@ -47,8 +107,8 @@ $('#rechargeForm').addEventListener('submit',async e=>{
 async function loadHistory(silent=false){if(!user)return;if(!silent)$('#historyList').innerHTML='<div class="empty">Cargando historial…</div>';try{const bets=await api('/bets'),labels={ACCEPTED_FOR_PROCESSING:'EN PROCESO',WON:'GANADA',LOST:'PERDIDA'};$('#historyList').innerHTML=bets.length?bets.map(b=>`<article class="history-item"><div><b>${esc(b.betOn)}</b><span class="muted">Partido ${esc(b.matchId)} · ${new Date(b.createdAt).toLocaleString('es-CO')}</span></div><div><b>Apuesta ${money.format(b.amount)}</b>${b.status==='WON'?`<span class="prize">Premio +${money.format(b.payout||0)}</span>`:''}</div><span class="status ${String(b.status).toLowerCase()}">${labels[b.status]||esc(b.status)}</span><span class="muted">${esc(b.betId)}</span></article>`).join(''):'<div class="empty">Aún no has realizado apuestas.</div>'}catch(err){if(!silent)toast(err.message,true)}}
 async function loadUsers(){if(user?.role!=='ADMIN')return;$('#usersList').innerHTML='<div class="empty">Cargando usuarios…</div>';try{const users=await api('/admin/users');$('#usersList').innerHTML=users.map(u=>`<article class="user-item"><div><b>${esc(u.name)}</b><span class="muted">${esc(u.email)} · ${esc(u.id)}</span></div><span class="status">${esc(u.role)}</span><b>${money.format(u.balance)}</b><div class="admin-actions"><button data-admin="balance" data-id="${esc(u.id)}">+$50.000</button><button data-admin="role" data-id="${esc(u.id)}" data-role="${esc(u.role)}">${u.role==='ADMIN'?'Hacer USER':'Hacer ADMIN'}</button><button data-admin="active" data-id="${esc(u.id)}" data-active="${u.active}">${u.active?'Desactivar':'Activar'}</button></div></article>`).join('')}catch(err){toast(err.message,true)}}
 async function adminAction(button){const id=button.dataset.id,type=button.dataset.admin;try{if(type==='balance')await api(`/admin/users/${id}/balance`,{method:'PATCH',body:JSON.stringify({amount:50000})});if(type==='role')await api(`/admin/users/${id}/role`,{method:'PATCH',body:JSON.stringify({role:button.dataset.role==='ADMIN'?'USER':'ADMIN'})});if(type==='active')await api(`/admin/users/${id}/active`,{method:'PATCH',body:JSON.stringify({active:button.dataset.active!=='true'})});toast('Usuario actualizado');loadUsers();refreshMe()}catch(err){toast(err.message,true)}}
-function showView(view){if(view==='recharge'&&!user){openAuth('login');return}currentView=view;['matches','history','recharge','admin'].forEach(v=>$(`#${v}View`).classList.toggle('hidden',v!==view));$$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));if(view==='history')loadHistory();if(view==='recharge'){resetRecharge();refreshMe()}if(view==='admin')loadUsers();window.scrollTo({top:view==='matches'?$('.dashboard').offsetTop-75:0,behavior:'smooth'})}
+function showView(view){if(view==='recharge'&&!user){openAuth('login');return}currentView=view;['matches','roulette','history','recharge','admin'].forEach(v=>$(`#${v}View`).classList.toggle('hidden',v!==view));$$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));if(view==='roulette'){loadRoulette();loadRouletteBets(true)}if(view==='history')loadHistory();if(view==='recharge'){resetRecharge();refreshMe()}if(view==='admin')loadUsers();const target=$(`#${view}View`);window.scrollTo({top:Math.max(0,target.offsetTop-75),behavior:'smooth'})}
 
-document.addEventListener('click',e=>{const auth=e.target.closest('[data-open-auth]'),bet=e.target.closest('[data-bet]'),view=e.target.closest('[data-view]'),admin=e.target.closest('[data-admin]'),recharge=e.target.closest('[data-recharge-amount]');if(auth)openAuth(auth.dataset.openAuth);if(bet)openBet(bet.dataset.bet,bet.dataset.team);if(view)showView(view.dataset.view);if(admin)adminAction(admin);if(recharge)selectRechargeAmount(recharge.dataset.rechargeAmount);if(e.target.matches('[data-close]'))e.target.closest('dialog').close();if(e.target.matches('[data-amount]'))$('#betAmount').value=e.target.dataset.amount});
-$('#loginTab').onclick=()=>setAuthMode('login');$('#registerTab').onclick=()=>setAuthMode('register');$('#logout').onclick=()=>logout();$('#refreshHistory').onclick=loadHistory;$('#heroBet').onclick=()=>document.querySelector('.dashboard').scrollIntoView({behavior:'smooth'});
-updateSession();loadMatches();connect();refreshMe();setInterval(updateTimers,1000);setInterval(()=>{if(currentView==='history'&&user){loadHistory(true);refreshMe()}},3000);
+document.addEventListener('click',e=>{const auth=e.target.closest('[data-open-auth]'),bet=e.target.closest('[data-bet]'),view=e.target.closest('[data-view]'),admin=e.target.closest('[data-admin]'),recharge=e.target.closest('[data-recharge-amount]'),roulette=e.target.closest('[data-rtype]'),chip=e.target.closest('[data-chip]');if(auth)openAuth(auth.dataset.openAuth);if(bet)openBet(bet.dataset.bet,bet.dataset.team);if(view)showView(view.dataset.view);if(admin)adminAction(admin);if(recharge)selectRechargeAmount(recharge.dataset.rechargeAmount);if(roulette&&rouletteState?.status==='BETTING')selectRoulette(roulette.dataset.rtype,roulette.dataset.rvalue,roulette);if(chip)selectRouletteChip(chip.dataset.chip,chip);if(e.target.matches('[data-close]'))e.target.closest('dialog').close();if(e.target.matches('[data-amount]'))$('#betAmount').value=e.target.dataset.amount});
+$('#loginTab').onclick=()=>setAuthMode('login');$('#registerTab').onclick=()=>setAuthMode('register');$('#logout').onclick=()=>logout();$('#refreshHistory').onclick=loadHistory;$('#heroBet').onclick=()=>document.querySelector('.dashboard').scrollIntoView({behavior:'smooth'});$('#placeRouletteBet').onclick=placeRouletteBet;
+initRoulette();updateSession();loadMatches();connect();refreshMe();setInterval(updateTimers,1000);setInterval(updateRouletteAnimation,50);setInterval(()=>{if(currentView==='roulette')loadRoulette(true);if(currentView==='history'&&user){loadHistory(true);refreshMe()}},1000);
