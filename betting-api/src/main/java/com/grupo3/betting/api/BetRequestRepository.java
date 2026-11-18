@@ -16,7 +16,9 @@ interface BetRequestRepository extends JpaRepository<BetRequestEntity, String> {
     Optional<BetRequestEntity> findByIdForSettlement(@Param("id") String id);
 
     @Query(value = """
-            select request.id as "betId", request.user_id as "userId", audit.winner as winner, audit.payout as payout
+            select request.id as "betId", request.user_id as "userId",
+                   coalesce(audit.status, case when audit.winner then 'WON' else 'LOST' end) as status,
+                   audit.payout as payout
             from bet_requests request
             join bets audit on audit.id = request.id
             where request.status = 'ACCEPTED_FOR_PROCESSING'
@@ -26,7 +28,7 @@ interface BetRequestRepository extends JpaRepository<BetRequestEntity, String> {
     interface PendingSettlement {
         String getBetId();
         String getUserId();
-        Boolean getWinner();
+        String getStatus();
         BigDecimal getPayout();
     }
 }

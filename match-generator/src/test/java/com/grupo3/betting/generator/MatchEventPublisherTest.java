@@ -1,22 +1,28 @@
 package com.grupo3.betting.generator;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grupo3.betting.contracts.MatchCreatedEvent;
+import com.grupo3.betting.contracts.MatchSimulationCommand;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class MatchEventPublisherTest {
+    @Mock MatchEventPort events;
+    @Mock MatchTimerPort timers;
+
     @Test void sendsEventAndSchedulesSimulation() {
-        KafkaTemplate<String,String> kafka = mock(KafkaTemplate.class); RabbitTemplate rabbit = mock(RabbitTemplate.class);
-        var publisher = new MatchEventPublisher(kafka, rabbit, new ObjectMapper().findAndRegisterModules(), 1000);
+        var publisher = new MatchEventPublisher(events, timers, 1000);
         var start = Instant.now();
-        publisher.publish(new MatchCreatedEvent("e1", "m1", List.of("A", "B"), start, start.plusSeconds(1)));
-        verify(kafka).send(eq("match_events"), eq("m1"), anyString());
-        verify(rabbit).send(eq("match.delayed"), eq("match.simulate"), any());
+        var event = new MatchCreatedEvent("e1", "m1", List.of("A", "B"), start, start.plusSeconds(1));
+        publisher.publish(event);
+        verify(events, times(1)).publish(event);
+        verify(timers, times(1)).schedule(any(MatchSimulationCommand.class), eq("e1"), eq(1000L));
+        verifyNoMoreInteractions(events, timers);
     }
 }

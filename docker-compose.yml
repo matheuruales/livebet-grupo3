@@ -2,7 +2,6 @@ name: grupo3-live-betting
 
 x-app-common: &app-common
   restart: unless-stopped
-  networks: [messaging, persistence]
   environment: &app-env
     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     RABBITMQ_HOST: rabbitmq
@@ -40,7 +39,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-    ports: ["9092:9092"]
+    expose: ["29092"]
     networks: [messaging]
     healthcheck: { test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092 >/dev/null 2>&1"], interval: 10s, timeout: 6s, retries: 15 }
     deploy:
@@ -61,7 +60,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-betting}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-betting_secret}
-    ports: ["5672:5672", "15672:15672"]
+    expose: ["5672", "15672"]
     networks: [messaging]
     healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"], interval: 10s, timeout: 5s, retries: 15 }
     deploy:
@@ -76,7 +75,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-betting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-betting_secret}
     volumes: [postgres_data:/var/lib/postgresql/data]
-    ports: ["${POSTGRES_HOST_PORT:-55432}:5432"]
+    expose: ["5432"]
     networks: [persistence]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 8s, timeout: 5s, retries: 12 }
     deploy:
@@ -86,6 +85,7 @@ services:
   results-engine:
     <<: *app-common
     build: { context: ., dockerfile: results-engine/Dockerfile }
+    networks: [messaging, persistence]
     environment:
       <<: *app-env
       DATABASE_URL: jdbc:postgresql://postgres-db:5432/betting
@@ -99,6 +99,7 @@ services:
   match-simulator:
     <<: *app-common
     build: { context: ., dockerfile: match-simulator/Dockerfile }
+    networks: [messaging]
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
@@ -106,6 +107,7 @@ services:
   dashboard-backend:
     <<: *app-common
     build: { context: ., dockerfile: dashboard-backend/Dockerfile }
+    networks: [messaging]
     ports: ["8080:8080"]
     depends_on: { rabbitmq: { condition: service_healthy } }
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep UP"], interval: 10s, timeout: 4s, retries: 12 }
@@ -113,6 +115,7 @@ services:
   betting-api:
     <<: *app-common
     build: { context: ., dockerfile: betting-api/Dockerfile }
+    networks: [messaging, persistence]
     environment:
       <<: *app-env
       DATABASE_URL: jdbc:postgresql://postgres-db:5432/betting
@@ -130,6 +133,7 @@ services:
   email-worker:
     <<: *app-common
     build: { context: ., dockerfile: email-worker/Dockerfile }
+    networks: [messaging]
     depends_on: { rabbitmq: { condition: service_healthy } }
     deploy:
       replicas: 2
@@ -140,10 +144,11 @@ services:
   match-generator:
     <<: *app-common
     build: { context: ., dockerfile: match-generator/Dockerfile }
+    networks: [messaging]
     environment:
       <<: *app-env
       MATCH_DURATION_MS: ${MATCH_DURATION_MS:-60000}
-      GENERATION_INTERVAL_MS: ${GENERATION_INTERVAL_MS:-45000}
+      GENERATION_INTERVAL_MS: ${GENERATION_INTERVAL_MS:-10000}
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }

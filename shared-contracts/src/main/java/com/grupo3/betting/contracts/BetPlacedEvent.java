@@ -4,9 +4,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
-public record BetPlacedEvent(String eventId, String betId, String userId, String matchId,
+public record BetPlacedEvent(String eventId, EventType eventType, String betId, String userId, String matchId,
                              String betOn, BigDecimal amount, Instant occurredAt) {
+    public BetPlacedEvent(String eventId, String betId, String userId, String matchId,
+                          String betOn, BigDecimal amount, Instant occurredAt) {
+        this(eventId, EventType.BET_PLACED, betId, userId, matchId, betOn, amount, occurredAt);
+    }
     public BetPlacedEvent {
+        if (eventType != EventType.BET_PLACED) throw new IllegalArgumentException("Tipo de evento inválido");
         require(eventId, "eventId"); require(betId, "betId"); require(userId, "userId");
         require(matchId, "matchId"); require(betOn, "betOn");
         if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("amount debe ser mayor que cero");

@@ -2,7 +2,7 @@
 
 ## Kafka como fuente de verdad
 
-`match_events` conserva las decisiones del negocio como eventos inmutables. La clave `match_id` mantiene juntos y ordenados los eventos de cada agregado. El `results-engine` consume desde `earliest` en la primera ejecución y reconstruye los partidos. Cada contrato incluye `eventId`, lo que permite deduplicar en `processed_events`.
+`match_events` conserva las decisiones del negocio como eventos inmutables. Cada contrato declara `eventType` y la clave `match_id` mantiene juntos y ordenados los eventos del agregado. En cada inicio, `results-engine` consume desde `earliest` con un grupo de reconstrucción nuevo. Siempre reaplica los eventos al estado en memoria y usa `processed_events` para impedir que la reproducción duplique pagos, correos o auditorías. El dashboard sí recibe la fotografía reconstruida.
 
 Kafka responde a la pregunta «¿qué ocurrió y en qué orden?». Su retención y capacidad de relectura permiten auditoría y reconstrucción.
 
@@ -25,9 +25,9 @@ Kafka conserva eventos, mientras PostgreSQL ofrece consultas relacionales sobre 
 
 ## Consistencia
 
-El sistema adopta consistencia eventual. `betting-api` confirma que recibió y publicó una solicitud, pero el agregado decide después si la apuesta cumple las invariantes. Una apuesta posterior al cierre genera una notificación `REJECTED`.
+El sistema adopta consistencia eventual. `betting-api` confirma que guardó la solicitud. Un Transactional Outbox almacena el débito, la apuesta y el evento pendiente en la misma transacción; un worker publica a Kafka con reintentos y marca el evento como enviado. El agregado decide después si la apuesta cumple las invariantes. Una apuesta posterior al cierre genera `REJECTED` y el reconciliador devuelve su importe exactamente una vez.
 
-El prototipo utiliza una sola instancia de `results-engine` porque el estado vive en memoria. Escalar ese servicio requiere Kafka Streams con state stores, particionado explícito y restauración de changelog, o una vista materializada externa.
+El sistema utiliza una sola instancia activa de `results-engine` porque cada arranque reconstruye su estado desde el log. Escalarlo horizontalmente requeriría asignar la propiedad de particiones y una tienda de estado por réplica, por ejemplo con Kafka Streams.
 
 ## Seguridad y operación
 

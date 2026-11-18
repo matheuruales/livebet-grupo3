@@ -14,11 +14,13 @@ class EmailNotificationWorker {
     EmailNotificationWorker(@Value("${HOSTNAME:local-worker}") String instance){this.instance=instance;}
     @RabbitListener(queues="email_notifications", concurrency="1")
     void send(EmailNotification n){
-        String text=switch(n.outcome()){
+        log.info("[{}] ENVIANDO EMAIL a {} | partido {} | {}",instance,n.userId(),n.matchId(),message(n));
+    }
+    String message(EmailNotification n) {
+        return switch(n.outcome()){
             case "WIN" -> "¡Ganaste " + n.amount() + "!";
             case "LOSS" -> "La apuesta finalizó sin premio. Valor: " + n.amount();
             default -> "Apuesta rechazada. Valor: " + n.amount();
         };
-        log.info("[{}] ENVIANDO EMAIL a {} | partido {} | {}",instance,n.userId(),n.matchId(),text);
     }
 }

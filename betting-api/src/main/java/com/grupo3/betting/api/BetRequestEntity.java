@@ -25,10 +25,17 @@ class BetRequestEntity {
     boolean pending() { return "ACCEPTED_FOR_PROCESSING".equals(status); }
     String userId() { return userId; }
     String matchId() { return matchId; }
+    BigDecimal amount() { return amount; }
     void settle(boolean winner, BigDecimal payout, Instant at) {
         if (!pending()) return;
         this.status = winner ? "WON" : "LOST";
         this.payout = winner ? payout : BigDecimal.ZERO;
+        this.settledAt = at;
+    }
+    void reject(Instant at) {
+        if (!pending()) return;
+        this.status = "REJECTED";
+        this.payout = BigDecimal.ZERO;
         this.settledAt = at;
     }
     BetView view() { return new BetView(id, matchId, betOn, amount, status, payout, createdAt, settledAt); }

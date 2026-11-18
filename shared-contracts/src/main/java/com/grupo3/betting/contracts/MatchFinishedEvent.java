@@ -3,9 +3,14 @@ package com.grupo3.betting.contracts;
 import java.time.Instant;
 import java.util.Objects;
 
-public record MatchFinishedEvent(String eventId, String matchId, String winner,
+public record MatchFinishedEvent(String eventId, EventType eventType, String matchId, String winner,
                                  Integer homeScore, Integer awayScore, Instant occurredAt) {
+    public MatchFinishedEvent(String eventId, String matchId, String winner,
+                              Integer homeScore, Integer awayScore, Instant occurredAt) {
+        this(eventId, EventType.MATCH_FINISHED, matchId, winner, homeScore, awayScore, occurredAt);
+    }
     public MatchFinishedEvent {
+        if (eventType != EventType.MATCH_FINISHED) throw new IllegalArgumentException("Tipo de evento inválido");
         require(eventId, "eventId"); require(matchId, "matchId"); require(winner, "winner");
         if ((homeScore == null) != (awayScore == null))
             throw new IllegalArgumentException("El marcador debe incluir ambos resultados");

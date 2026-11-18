@@ -1,0 +1,48 @@
+package com.grupo3.betting.engine;
+
+import com.grupo3.betting.contracts.DashboardNotification;
+import com.grupo3.betting.contracts.MatchCreatedEvent;
+import com.grupo3.betting.domain.MatchAggregate;
+import com.grupo3.betting.domain.MatchId;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
+class MatchRegistry {
+    private final Map<String, MatchAggregate> matches = new ConcurrentHashMap<>();
+    private final Map<String, Instant> starts = new ConcurrentHashMap<>();
+    private final Map<String, Instant> ends = new ConcurrentHashMap<>();
+    private final Map<String, Integer> homeScores = new ConcurrentHashMap<>();
+    private final Map<String, Integer> awayScores = new ConcurrentHashMap<>();
+
+    MatchAggregate create(MatchCreatedEvent event) {
+        starts.putIfAbsent(event.matchId(), event.occurredAt());
+        ends.putIfAbsent(event.matchId(), event.endsAt() == null ? event.occurredAt().plusSeconds(60) : event.endsAt());
+        return matches.computeIfAbsent(event.matchId(), id -> MatchAggregate.create(new MatchId(id), event.teams()));
+    }
+
+    MatchAggregate require(String matchId) {
+        MatchAggregate match = matches.get(matchId);
+        if (match == null) throw new IllegalStateException("No existe el partido " + matchId);
+        return match;
+    }
+
+    void score(String matchId, Integer homeScore, Integer awayScore) {
+        if (homeScore != null) {
+            homeScores.put(matchId, homeScore);
+            awayScores.put(matchId, awayScore);
+        }
+    }
+
+    DashboardNotification dashboard(MatchAggregate match, Instant occurredAt) {
+        String id = match.id().value();
+        return new DashboardNotification(id, match.status().name(), match.teams(), match.winner(),
+                homeScores.get(id), awayScores.get(id), match.bets().size(), match.totalBet(),
+                starts.get(id), ends.get(id), occurredAt);
+    }
+
+    Map<String, MatchAggregate> snapshot() { return Map.copyOf(matches); }
+}

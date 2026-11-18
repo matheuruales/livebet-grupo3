@@ -6,15 +6,15 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
-import java.util.*;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/bets")
+@RequestMapping({"/api/bets", "/bet"})
 @CrossOrigin(origins = "*")
 class BetController {
     private final BetService service;
     BetController(BetService service) { this.service = service; }
-    @PostMapping ResponseEntity<Map<String,Object>> place(@Valid @RequestBody PlaceBetRequest request) {
+    @PostMapping ResponseEntity<PlaceBetResponse> place(@Valid @RequestBody PlaceBetRequest request) {
         return ResponseEntity.accepted().body(service.place(currentUserId(), request));
     }
 

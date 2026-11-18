@@ -1,23 +1,15 @@
 package com.grupo3.betting.api;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
 import org.springframework.context.annotation.*;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.stereotype.Component;
 import org.springframework.web.cors.*;
-import java.io.IOException;
 import java.util.List;
 
 @Configuration @EnableMethodSecurity
@@ -42,24 +34,5 @@ class SecurityConfig {
                     res.setStatus(401); res.setContentType("application/json");
                     res.getWriter().write("{\"error\":\"Debes iniciar sesión\"}");
                 })).build();
-    }
-}
-
-@Component
-class BearerTokenFilter extends org.springframework.web.filter.OncePerRequestFilter {
-    private final TokenService tokens;
-    BearerTokenFilter(TokenService tokens) { this.tokens = tokens; }
-    @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith("Bearer ")) {
-            try {
-                AuthPrincipal principal = tokens.verify(header.substring(7));
-                var auth = new UsernamePasswordAuthenticationToken(principal, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + principal.role())));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (IllegalArgumentException ignored) { SecurityContextHolder.clearContext(); }
-        }
-        chain.doFilter(request, response);
     }
 }

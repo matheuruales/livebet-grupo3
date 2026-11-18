@@ -32,7 +32,7 @@ La clave de cada registro en `match_events` es el `match_id`. Kafka asigna todos
 | Componente | Responsabilidad |
 |---|---|
 | `match-generator` | Crea partidos y programa su cierre con `x-delay` |
-| `betting-api` | Valida la entrada y publica `BET_PLACED` |
+| `betting-api` | Valida, registra y publica `BET_PLACED` mediante Transactional Outbox |
 | `match-simulator` | Consume el temporizador y elige el ganador |
 | `results-engine` | Reconstruye agregados, aplica reglas, liquida y audita |
 | `dashboard-backend` | Consume cambios y los transmite por WebSocket |
@@ -65,9 +65,7 @@ Accesos locales:
 
 - Dashboard: <http://localhost:8080>
 - API de apuestas: <http://localhost:8081/api/bets>
-- RabbitMQ Management: <http://localhost:15672>
-- Kafka externo: `localhost:9092`
-- PostgreSQL externo: `localhost:55432`
+Kafka, RabbitMQ y PostgreSQL permanecen únicamente en redes internas. Solo el dashboard y la API exponen puertos al host.
 
 Despliegue de entrega verificado en AWS (18 de noviembre de 2026):
 
@@ -97,7 +95,7 @@ La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PA
 | `POST` | `/api/auth/register` | Público | Crear una cuenta |
 | `POST` | `/api/auth/login` | Público | Iniciar sesión y obtener token |
 | `GET` | `/api/auth/me` | Token | Perfil y saldo actual |
-| `POST` | `/api/bets` | Token | Registrar una apuesta |
+| `POST` | `/api/bets` o `/bet` | Token | Registrar una apuesta |
 | `GET` | `/api/bets` | Token | Historial personal |
 | `POST` | `/api/recharges` | Token | Simular un pago y recargar saldo |
 | `GET` | `/api/admin/users` | ADMIN | Consultar usuarios |
@@ -131,11 +129,13 @@ La API responde `202 Accepted` porque el motor valida la regla de negocio de for
 1. `match-generator` publica `MATCH_CREATED` en Kafka y un comando diferido en RabbitMQ.
 2. `results-engine` reconstruye el agregado y publica el partido abierto.
 3. El dashboard recibe el cambio por WebSocket.
-4. `betting-api` registra las apuestas en Kafka.
+4. `betting-api` guarda saldo, apuesta y evento pendiente en una sola transacción; el outbox publica después en Kafka con reintentos.
 5. RabbitMQ entrega el comando cuando vence el tiempo.
 6. `match-simulator` publica `MATCH_FINISHED`.
 7. `results-engine` cierra el agregado, calcula pagos con cuota fija 2.0, persiste la auditoría y emite notificaciones.
-8. Una réplica de `email-worker` procesa cada mensaje y el dashboard muestra el resultado.
+8. Una réplica de `email-worker` procesa cada mensaje y el dashboard muestra el resultado. Una apuesta tardía queda `REJECTED` y se reembolsa una sola vez.
+
+Al iniciar, `results-engine` reproduce `match_events` desde `earliest` con un grupo nuevo. Los eventos auditados reconstruyen el estado y refrescan el dashboard, pero no vuelven a generar pagos, correos ni escrituras contables.
 
 ## Pruebas
 
@@ -159,7 +159,7 @@ docker compose exec postgres-db psql -U betting -d betting -c \
   'select id, home_team, away_team, winner, total_bet from matches order by closed_at desc;'
 ```
 
-En RabbitMQ Management se observan el exchange diferido `match.delayed`, el exchange `notifications`, la cola de simulación y las colas de notificación.
+Los logs permiten observar el exchange diferido, las simulaciones, las liquidaciones y el reparto de notificaciones entre workers. La consola de RabbitMQ puede habilitarse temporalmente solo durante diagnóstico local.
 
 ## Detener el sistema
 

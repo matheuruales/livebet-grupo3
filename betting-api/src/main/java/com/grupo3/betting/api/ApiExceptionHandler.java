@@ -3,22 +3,28 @@ package com.grupo3.betting.api;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
-import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice
 class ApiExceptionHandler {
-    @ExceptionHandler({MethodArgumentNotValidException.class, IllegalArgumentException.class})
-    ResponseEntity<Map<String,Object>> badRequest(Exception e) {
-        return ResponseEntity.badRequest().body(Map.of("timestamp", Instant.now().toString(), "error", "Solicitud inválida", "detail", e.getMessage()));
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiErrorResponse> validation(MethodArgumentNotValidException exception) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        exception.getBindingResult().getFieldErrors().forEach(error -> fields.put(error.getField(), error.getDefaultMessage()));
+        return ResponseEntity.badRequest().body(ApiErrorResponse.validation("Revisa los campos indicados", fields));
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ApiErrorResponse> badRequest(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(ApiErrorResponse.of("Solicitud inválida", exception.getMessage()));
     }
     @ExceptionHandler(IllegalStateException.class)
-    ResponseEntity<Map<String,Object>> conflict(IllegalStateException e) {
-        return ResponseEntity.status(409).body(Map.of("timestamp", Instant.now().toString(), "error", "No se pudo completar", "detail", e.getMessage()));
+    ResponseEntity<ApiErrorResponse> conflict(IllegalStateException exception) {
+        return ResponseEntity.status(409).body(ApiErrorResponse.of("No se pudo completar", exception.getMessage()));
     }
     @ExceptionHandler(AccessDeniedException.class)
-    ResponseEntity<Map<String,Object>> forbidden(AccessDeniedException e) {
-        return ResponseEntity.status(403).body(Map.of("timestamp", Instant.now().toString(), "error", "Acceso denegado", "detail", "No tienes permisos para esta acción"));
+    ResponseEntity<ApiErrorResponse> forbidden(AccessDeniedException exception) {
+        return ResponseEntity.status(403).body(ApiErrorResponse.of("Acceso denegado", "No tienes permisos para esta acción"));
     }
 }

@@ -21,3 +21,4 @@ spring:
     open-in-view: false
     properties.hibernate.jdbc.time_zone: UTC
 management.endpoints.web.exposure.include: health,info
+app.kafka-group: ${RESULTS_ENGINE_GROUP:results-engine-${random.uuid}}
