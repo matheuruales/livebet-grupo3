@@ -1,0 +1,12 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>com.grupo3</groupId><artifactId>live-betting-platform</artifactId><version>1.0.0</version></parent>
+  <artifactId>email-worker</artifactId>
+  <dependencies>
+    <dependency><groupId>com.grupo3</groupId><artifactId>shared-contracts</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-amqp</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
+</project>

@@ -1,0 +1,11 @@
+spring:
+  application.name: email-worker
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
+    listener.simple:
+      acknowledge-mode: auto
+      prefetch: 1
+      retry: { enabled: true, max-attempts: 3, initial-interval: 1000ms }
+management.endpoints.web.exposure.include: health,info

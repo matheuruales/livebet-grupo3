@@ -1,0 +1,19 @@
+spring:
+  application.name: match-generator
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        acks: all
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
+app:
+  match-duration-ms: ${MATCH_DURATION_MS:60000}
+  generation-interval-ms: ${GENERATION_INTERVAL_MS:45000}
+management.endpoints.web.exposure.include: health,info

@@ -1,0 +1,23 @@
+spring:
+  application.name: results-engine
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener.ack-mode: record
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://postgres-db:5432/betting}
+    username: ${POSTGRES_USER:betting}
+    password: ${POSTGRES_PASSWORD:betting_secret}
+  jpa:
+    hibernate.ddl-auto: update
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+management.endpoints.web.exposure.include: health,info

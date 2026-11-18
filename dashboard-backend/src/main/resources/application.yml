@@ -1,0 +1,9 @@
+server.port: 8080
+spring:
+  application.name: dashboard-backend
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
+    listener.simple.retry: { enabled: true, max-attempts: 3 }
+management.endpoints.web.exposure.include: health,info

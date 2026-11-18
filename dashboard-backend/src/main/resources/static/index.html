@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LiveBet · Grupo 3</title>
+  <style>
+    :root{--bg:#08111f;--card:#101d30;--line:#22324a;--text:#e8f0fb;--muted:#91a4be;--green:#34d399;--red:#fb7185;--blue:#60a5fa;--yellow:#fbbf24}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#122746 0,#08111f 48%);color:var(--text);font:15px system-ui,-apple-system,sans-serif;min-height:100vh}
+    header{max-width:1180px;margin:auto;padding:42px 24px 24px;display:flex;justify-content:space-between;align-items:end;gap:20px}h1{font-size:clamp(28px,5vw,52px);margin:0;letter-spacing:-.04em}header p{color:var(--muted);margin:8px 0 0}.live{display:flex;gap:9px;align-items:center;border:1px solid var(--line);padding:10px 14px;border-radius:999px;background:#0a1524}.dot{width:9px;height:9px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px currentColor}.connected .dot{background:var(--green)}
+    main{max-width:1180px;margin:auto;padding:10px 24px 60px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 32px}.stat,.card{background:linear-gradient(145deg,#13233a,#0d192a);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 50px #02081355}.stat{padding:20px}.stat b{font-size:30px;display:block}.stat span{color:var(--muted)}
+    h2{font-size:18px;margin:28px 0 14px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{padding:20px;position:relative;overflow:hidden}.card:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--blue)}.card.closed:before{background:var(--red)}.tag{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--green)}.closed .tag{color:var(--red)}.teams{font-size:22px;font-weight:750;margin:12px 0}.meta{color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px;margin-top:18px}.winner{color:var(--yellow);margin-top:8px}.empty{border:1px dashed var(--line);padding:32px;border-radius:18px;color:var(--muted);text-align:center}
+    @media(max-width:600px){header{align-items:start;flex-direction:column}.stats{grid-template-columns:1fr}.stat{display:flex;justify-content:space-between;align-items:center}.stat b{font-size:24px}}
+  </style>
+</head>
+<body>
+<header><div><h1>LiveBet</h1><p>Event Sourcing · Kafka · RabbitMQ · Grupo 3</p></div><div id="connection" class="live"><i class="dot"></i><span>Conectando…</span></div></header>
+<main><section class="stats"><div class="stat"><b id="openCount">0</b><span>Partidos abiertos</span></div><div class="stat"><b id="closedCount">0</b><span>Partidos liquidados</span></div><div class="stat"><b id="totalBets">$0</b><span>Total apostado</span></div></section><h2>En vivo</h2><div id="open" class="grid"></div><h2>Resultados finales</h2><div id="closed" class="grid"></div></main>
+<script>
+const matches=new Map(), money=new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function render(){let open=[],closed=[],total=0;for(const m of matches.values()){total+=Number(m.totalBet||0);(m.status==='OPEN_FOR_BETS'?open:closed).push(m)}
+ openCount.textContent=open.length;closedCount.textContent=closed.length;totalBets.textContent=money.format(total);
+ document.querySelector('#open').innerHTML=open.length?open.map(card).join(''):'<div class="empty">Esperando el próximo partido…</div>';
+ document.querySelector('#closed').innerHTML=closed.length?closed.sort((a,b)=>String(b.occurredAt).localeCompare(String(a.occurredAt))).map(card).join(''):'<div class="empty">Todavía no hay resultados</div>'}
+function card(m){let closed=m.status!=='OPEN_FOR_BETS';return `<article class="card ${closed?'closed':''}"><div class="tag">${closed?'FINALIZADO':'ABIERTO PARA APUESTAS'}</div><div class="teams">${esc(m.teams[0])} <span style="color:#667891">vs</span> ${esc(m.teams[1])}</div>${m.winner?`<div class="winner">Ganador: <b>${esc(m.winner)}</b></div>`:''}<div class="meta"><span>${m.bets||0} apuestas</span><b>${money.format(m.totalBet||0)}</b></div></article>`}
+async function initial(){try{(await (await fetch('/api/matches')).json()).forEach(m=>matches.set(m.matchId,m));render()}catch(e){}}
+function connect(){const ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);ws.onopen=()=>{connection.classList.add('connected');connection.querySelector('span').textContent='En tiempo real'};ws.onmessage=e=>{const m=JSON.parse(e.data);matches.set(m.matchId,m);render()};ws.onclose=()=>{connection.classList.remove('connected');connection.querySelector('span').textContent='Reconectando…';setTimeout(connect,2000)}}
+initial();connect();
+</script></body></html>

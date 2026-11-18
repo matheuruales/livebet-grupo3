@@ -1,0 +1,12 @@
+server.port: 8081
+spring:
+  application.name: betting-api
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        acks: all
+management.endpoints.web.exposure.include: health,info

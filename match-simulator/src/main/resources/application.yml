@@ -1,0 +1,16 @@
+spring:
+  application.name: match-simulator
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties: { enable.idempotence: true, acks: all }
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
+    listener.simple:
+      acknowledge-mode: auto
+      retry: { enabled: true, max-attempts: 3, initial-interval: 1000ms }
+management.endpoints.web.exposure.include: health,info
