@@ -28,8 +28,11 @@ function initRoulette(){
   $('#rouletteNumbers').innerHTML=Array.from({length:36},(_,i)=>{const n=i+1;return `<button class="number ${redNumbers.has(n)?'red':'black'}" data-rtype="NUMBER" data-rvalue="${n}">${n}</button>`}).join('');
   const sector=360/rouletteOrder.length;
   $('#rouletteWheel').style.background=`conic-gradient(from ${-sector/2}deg,${rouletteOrder.map((n,i)=>`${n===0?'#15955b':redNumbers.has(n)?'#df3f51':'#1e2025'} ${i*sector}deg ${(i+1)*sector}deg`).join(',')})`;
-  $('#wheelNumbers').innerHTML=rouletteOrder.map((n,i)=>`<span style="--angle:${i*sector}deg"><b>${n}</b></span>`).join('');
-  $('#wheelNumbers').innerHTML=rouletteOrder.map((n,i)=>`<span style="transform:rotate(${i*sector}deg) translateY(-46%)"><b style="transform:rotate(${-i*sector}deg)">${n}</b></span>`).join('');
+  $('#wheelNumbers').innerHTML=rouletteOrder.map((n,i)=>{
+    const angle=i*sector,rad=angle*Math.PI/180,radius=39;
+    const left=50+radius*Math.sin(rad),top=50-radius*Math.cos(rad);
+    return `<span style="left:${left}%;top:${top}%;transform:translate(-50%,-50%) rotate(${angle}deg)"><b>${n}</b></span>`;
+  }).join('');
 }
 function rouletteLabel(type,value){if(type==='NUMBER')return `Número ${value}`;return {RED:'Rojo',BLACK:'Negro',EVEN:'Par',ODD:'Impar',LOW:'1–18',HIGH:'19–36',FIRST:'1.ª docena',SECOND:'2.ª docena',THIRD:'3.ª docena'}[value]||value}
 function rouletteMultiplier(type){return type==='NUMBER'?36:type==='DOZEN'?3:2}
