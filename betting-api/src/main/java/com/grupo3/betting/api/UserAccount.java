@@ -40,6 +40,7 @@ class UserAccount {
     }
 
     void credit(BigDecimal amount) {
+        if (!active) throw new IllegalStateException("La cuenta está desactivada");
         if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("El valor debe ser positivo");
         balance = balance.add(amount);
     }

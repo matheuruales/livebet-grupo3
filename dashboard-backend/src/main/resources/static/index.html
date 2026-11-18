@@ -8,7 +8,7 @@
 <body>
 <header class="topbar"><nav class="container nav">
   <a class="brand" href="#inicio"><span class="logo">⚡</span><span>LIVE<em>BET</em></span></a>
-  <div class="links"><button data-view="matches" class="active">Partidos</button><button data-view="history" class="auth-only hidden">Mis apuestas</button><button data-view="admin" class="admin-only hidden">Administración</button></div>
+  <div class="links"><button data-view="matches" class="active">Partidos</button><button data-view="history" class="auth-only hidden">Mis apuestas</button><button data-view="recharge" class="auth-only hidden">Recargar saldo</button><button data-view="admin" class="admin-only hidden">Administración</button></div>
   <div id="guestSession" class="session"><button class="btn btn-blue btn-small" data-open-auth="login">Entrar</button><button class="btn btn-orange btn-small" data-open-auth="register">Crear cuenta</button></div>
   <div id="userSession" class="session hidden"><span id="userBalance" class="balance">$0</span><span id="userAvatar" class="avatar">U</span><span id="userName" class="user-name"><b>Usuario</b></span><button id="logout" class="btn btn-small">Salir</button></div>
 </nav></header>
@@ -23,6 +23,27 @@
     <div class="subhead"><h3>Resultados recientes</h3><span>ÚLTIMOS</span></div><div id="closedMatches" class="match-grid"></div>
   </section>
   <section id="historyView" class="container panel hidden"><div class="section-head"><div><h2>Mis apuestas</h2><p>Consulta tus selecciones, montos y estado de procesamiento.</p></div><button class="btn btn-blue" id="refreshHistory">Actualizar</button></div><div class="panel-card"><div id="historyList" class="history-list"></div></div></section>
+  <section id="rechargeView" class="container panel recharge-view hidden">
+    <div class="section-head"><div><span class="eyebrow"><i></i> PASARELA DEMO</span><h2>Recargar saldo</h2><p>Simula un pago con tarjeta y recibe el saldo inmediatamente en tu cuenta LiveBet.</p></div><div class="current-balance"><span>SALDO ACTUAL</span><b id="rechargeBalance">$0</b></div></div>
+    <div class="recharge-grid">
+      <div class="payment-card-wrap">
+        <div class="credit-card"><div class="card-top"><span class="card-chip"></span><b>LIVEBET</b></div><div id="cardPreviewNumber" class="card-number">•••• •••• •••• 4242</div><div class="card-bottom"><div><small>TITULAR</small><b id="cardPreviewName">TU NOMBRE</b></div><div><small>VENCE</small><b id="cardPreviewExpiry">MM/AA</b></div></div></div>
+        <div class="demo-notice"><b>Pago 100% ficticio</b><p>No uses una tarjeta real. Para probar utiliza <strong>4242 4242 4242 4242</strong>, cualquier CVV y una fecha futura.</p></div>
+      </div>
+      <div class="panel-card recharge-form-card">
+        <form id="rechargeForm" class="form">
+          <div class="field"><label for="rechargeAmount">Monto de la recarga</label><div class="money-input"><span>$</span><input id="rechargeAmount" type="number" min="5000" max="2000000" step="1000" value="50000" required></div></div>
+          <div class="quick-amounts recharge-amounts"><button type="button" data-recharge-amount="20000">$20K</button><button type="button" data-recharge-amount="50000">$50K</button><button type="button" data-recharge-amount="100000">$100K</button><button type="button" data-recharge-amount="250000">$250K</button></div>
+          <div class="field"><label for="cardholder">Nombre del titular</label><input id="cardholder" autocomplete="cc-name" maxlength="80" placeholder="Como aparece en la tarjeta" required></div>
+          <div class="field"><label for="cardNumber">Número de tarjeta ficticia</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" required></div>
+          <div class="card-fields"><div class="field"><label for="cardExpiry">Vencimiento</label><input id="cardExpiry" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/AA" required></div><div class="field"><label for="cardCvv">CVV</label><input id="cardCvv" type="password" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123" required></div></div>
+          <label class="fake-check"><input id="demoPaymentCheck" type="checkbox" required><span>Entiendo que esta es una simulación y no procesa dinero real.</span></label>
+          <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Simular pago y recargar →</button>
+        </form>
+        <div id="rechargeSuccess" class="recharge-success hidden"><span>✓</span><h3>¡Recarga aprobada!</h3><p id="rechargeSuccessText"></p><button class="btn btn-blue" data-view="matches">Volver a los partidos</button></div>
+      </div>
+    </div>
+  </section>
   <section id="adminView" class="container panel hidden"><div class="section-head"><div><h2>Control de usuarios</h2><p>Panel protegido para administrar roles, saldo y estado de las cuentas.</p></div><span class="eyebrow"><i></i> ROL ADMIN</span></div><div class="panel-card"><div id="usersList" class="users-list"></div></div></section>
 </main>
 <dialog id="authDialog"><div class="modal"><div class="modal-head"><div><span class="eyebrow"><i></i> BIENVENIDO</span><h2 id="authTitle">Iniciar sesión</h2></div><button class="modal-close" data-close>×</button></div><div class="tabs"><button id="loginTab" class="active">Entrar</button><button id="registerTab">Registrarme</button></div><form id="authForm" class="form"><div id="nameField" class="field hidden"><label for="authName">Nombre completo</label><input id="authName" autocomplete="name" minlength="3" placeholder="Tu nombre"></div><div class="field"><label for="authEmail">Correo electrónico</label><input id="authEmail" type="email" required autocomplete="email" placeholder="tu@correo.com"></div><div class="field"><label for="authPassword">Contraseña</label><input id="authPassword" type="password" required minlength="8" autocomplete="current-password" placeholder="Mínimo 8 caracteres"></div><p id="authError" class="form-error"></p><button class="btn btn-orange" type="submit" id="authSubmit">Entrar a LiveBet</button></form></div></dialog>

@@ -86,6 +86,8 @@ Las credenciales de desarrollo se encuentran en `.env`. Cambie todos los secreto
 
 Desde el dashboard, cree una cuenta, seleccione cualquiera de los dos equipos de un partido abierto, elija el monto y confirme. Cada cuenta nueva recibe 250.000 COP de saldo demo.
 
+El panel **Recargar saldo** incluye una pasarela completamente ficticia. Para la demostración use la tarjeta `4242 4242 4242 4242`, cualquier CVV de tres dígitos y una fecha futura. La aplicación valida la tarjeta, registra únicamente sus últimos cuatro dígitos y abona el monto al saldo; no use datos bancarios reales.
+
 La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PASSWORD`; nunca conserve las credenciales de ejemplo en un despliegue público.
 
 ### API de autenticación y usuarios
@@ -97,6 +99,7 @@ La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PA
 | `GET` | `/api/auth/me` | Token | Perfil y saldo actual |
 | `POST` | `/api/bets` | Token | Registrar una apuesta |
 | `GET` | `/api/bets` | Token | Historial personal |
+| `POST` | `/api/recharges` | Token | Simular un pago y recargar saldo |
 | `GET` | `/api/admin/users` | ADMIN | Consultar usuarios |
 | `PATCH` | `/api/admin/users/{id}/balance` | ADMIN | Recargar saldo |
 | `PATCH` | `/api/admin/users/{id}/role` | ADMIN | Cambiar rol |
