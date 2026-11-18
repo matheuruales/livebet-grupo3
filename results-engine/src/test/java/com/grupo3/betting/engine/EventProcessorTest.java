@@ -18,16 +18,18 @@ class EventProcessorTest {
         mapper=new ObjectMapper().findAndRegisterModules();processor=new EventProcessor(mapper,matches,events,notifications);
     }
     @Test void persistsAndNotifiesAfterSettlement() throws Exception {
-        process(new MatchCreatedEvent("e1","m1",List.of("A","B"),Instant.now()));
+        var start=Instant.now();
+        process(new MatchCreatedEvent("e1","m1",List.of("A","B"),start,start.plusSeconds(60)));
         process(new BetPlacedEvent("e2","b1","u1","m1","A",BigDecimal.TEN,Instant.now()));
-        process(new MatchFinishedEvent("e3","m1","A",Instant.now()));
+        process(new MatchFinishedEvent("e3","m1","A",2,1,Instant.now()));
         verify(matches).save(any(MatchAuditEntity.class));
         verify(notifications).email(eq("notify.email.win"),any(EmailNotification.class));
         verify(notifications).dashboard(eq("notify.dashboard.finished"),any(DashboardNotification.class));
     }
     @Test void rejectsBetAfterCloseWithoutBreakingStream() throws Exception {
-        process(new MatchCreatedEvent("e1","m1",List.of("A","B"),Instant.now()));
-        process(new MatchFinishedEvent("e2","m1","B",Instant.now()));
+        var start=Instant.now();
+        process(new MatchCreatedEvent("e1","m1",List.of("A","B"),start,start.plusSeconds(60)));
+        process(new MatchFinishedEvent("e2","m1","B",0,3,Instant.now()));
         process(new BetPlacedEvent("e3","b1","u1","m1","A",BigDecimal.TEN,Instant.now()));
         verify(notifications).email(eq("notify.email.rejected"),any(EmailNotification.class));
     }

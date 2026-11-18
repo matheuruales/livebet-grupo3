@@ -21,8 +21,10 @@ class RandomMatchScheduler {
     void generate() {
         int first = ThreadLocalRandom.current().nextInt(TEAMS.size());
         int second; do { second = ThreadLocalRandom.current().nextInt(TEAMS.size()); } while (second == first);
+        var startsAt = Instant.now();
         var event = new MatchCreatedEvent(UUID.randomUUID().toString(), "m-" + UUID.randomUUID().toString().substring(0, 8),
-                List.of(TEAMS.get(first), TEAMS.get(second)), Instant.now());
+                List.of(TEAMS.get(first), TEAMS.get(second)), startsAt,
+                startsAt.plusMillis(publisher.matchDurationMs()));
         publisher.publish(event); log.info("MATCH_CREATED {}: {} vs {}", event.matchId(), event.teams().get(0), event.teams().get(1));
     }
 }

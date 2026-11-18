@@ -19,6 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
 class EventProcessor {
     private static final Logger log = LoggerFactory.getLogger(EventProcessor.class);
     private final Map<String, MatchAggregate> matches = new ConcurrentHashMap<>();
+    private final Map<String, Instant> starts = new ConcurrentHashMap<>();
+    private final Map<String, Instant> ends = new ConcurrentHashMap<>();
+    private final Map<String, Integer> homeScores = new ConcurrentHashMap<>();
+    private final Map<String, Integer> awayScores = new ConcurrentHashMap<>();
     private final ObjectMapper mapper; private final MatchAuditRepository matchesRepo; private final ProcessedEventRepository eventsRepo;
     private final NotificationPublisher notifications;
     private final PayoutStrategy payoutStrategy = new FixedOddsPayoutStrategy(BigDecimal.valueOf(2));
@@ -37,6 +41,8 @@ class EventProcessor {
     }
     private void created(MatchCreatedEvent event) {
         var match = matches.computeIfAbsent(event.matchId(), id -> MatchAggregate.create(new MatchId(id), event.teams()));
+        starts.putIfAbsent(event.matchId(), event.occurredAt());
+        ends.putIfAbsent(event.matchId(), event.endsAt() == null ? event.occurredAt().plusSeconds(60) : event.endsAt());
         eventsRepo.save(new ProcessedEventEntity(event.eventId(), "MATCH_CREATED", event.matchId()));
         notifications.dashboard("notify.dashboard.created", dashboard(match, event.occurredAt()));
         log.info("Partido {} reconstruido en estado {}", event.matchId(), match.status());
@@ -55,7 +61,12 @@ class EventProcessor {
     }
     private void finished(MatchFinishedEvent event) {
         var match = requireMatch(event.matchId()); match.finish(event.winner()); match.settle(payoutStrategy);
-        var audit = new MatchAuditEntity(match.id().value(), match.teams().get(0), match.teams().get(1), match.status().name(), match.winner(), match.totalBet(), Instant.now());
+        if (event.homeScore() != null) {
+            homeScores.put(event.matchId(), event.homeScore());
+            awayScores.put(event.matchId(), event.awayScore());
+        }
+        var audit = new MatchAuditEntity(match.id().value(), match.teams().get(0), match.teams().get(1), match.status().name(), match.winner(),
+                event.homeScore(), event.awayScore(), match.totalBet(), Instant.now());
         for (var settlement : match.settlements()) {
             var bet=settlement.bet(); audit.add(new BetAuditEntity(bet.id().value(),bet.userId().value(),bet.team(),bet.stake().amount(),settlement.winner(),settlement.payout().amount()));
             notifications.email(settlement.winner()?"notify.email.win":"notify.email.loss",
@@ -63,13 +74,16 @@ class EventProcessor {
         }
         matchesRepo.save(audit); eventsRepo.save(new ProcessedEventEntity(event.eventId(), "MATCH_FINISHED", event.matchId()));
         notifications.dashboard("notify.dashboard.finished", dashboard(match, event.occurredAt()));
-        log.info("Partido {} liquidado, ganador={}, apuestas={}", match.id().value(), match.winner(), match.bets().size());
+        log.info("Partido {} liquidado, marcador={}-{}, ganador={}, apuestas={}", match.id().value(),
+                event.homeScore(), event.awayScore(), match.winner(), match.bets().size());
     }
     private MatchAggregate requireMatch(String id) {
         var match=matches.get(id); if(match==null) throw new IllegalStateException("No existe el partido " + id); return match;
     }
     private DashboardNotification dashboard(MatchAggregate match, Instant at) {
-        return new DashboardNotification(match.id().value(),match.status().name(),match.teams(),match.winner(),match.bets().size(),match.totalBet(),at);
+        String id = match.id().value();
+        return new DashboardNotification(id,match.status().name(),match.teams(),match.winner(),
+                homeScores.get(id),awayScores.get(id),match.bets().size(),match.totalBet(),starts.get(id),ends.get(id),at);
     }
     Map<String,MatchAggregate> snapshot() { return Map.copyOf(matches); }
 }

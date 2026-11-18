@@ -5,4 +5,6 @@ import java.time.Instant;
 import java.util.List;
 
 public record DashboardNotification(String matchId, String status, List<String> teams,
-                                    String winner, int bets, BigDecimal totalBet, Instant occurredAt) {}
+                                    String winner, Integer homeScore, Integer awayScore,
+                                    int bets, BigDecimal totalBet, Instant startsAt,
+                                    Instant endsAt, Instant occurredAt) {}

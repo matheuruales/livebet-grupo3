@@ -21,6 +21,7 @@ class MatchEventPublisher {
                         @Value("${app.match-duration-ms:60000}") long durationMs) {
         this.kafka = kafka; this.rabbit = rabbit; this.mapper = mapper; this.durationMs = durationMs;
     }
+    long matchDurationMs() { return durationMs; }
     void publish(MatchCreatedEvent event) {
         try {
             kafka.send("match_events", event.matchId(), mapper.writeValueAsString(event));

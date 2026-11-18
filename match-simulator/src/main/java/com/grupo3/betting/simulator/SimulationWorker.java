@@ -20,9 +20,15 @@ class SimulationWorker {
     @RabbitListener(queues = "match_simulation_queue")
     void simulate(String message) throws Exception {
         var command = mapper.readValue(message, MatchSimulationCommand.class);
-        String winner = command.teams().get(ThreadLocalRandom.current().nextInt(command.teams().size()));
-        var event = new MatchFinishedEvent(UUID.randomUUID().toString(), command.matchId(), winner, Instant.now());
+        int winnerIndex = ThreadLocalRandom.current().nextInt(command.teams().size());
+        int loserScore = ThreadLocalRandom.current().nextInt(0, 4);
+        int winnerScore = ThreadLocalRandom.current().nextInt(loserScore + 1, 6);
+        int homeScore = winnerIndex == 0 ? winnerScore : loserScore;
+        int awayScore = winnerIndex == 1 ? winnerScore : loserScore;
+        String winner = command.teams().get(winnerIndex);
+        var event = new MatchFinishedEvent(UUID.randomUUID().toString(), command.matchId(), winner,
+                homeScore, awayScore, Instant.now());
         kafka.send("match_events", event.matchId(), mapper.writeValueAsString(event)).get();
-        log.info("MATCH_FINISHED {} ganador={}", event.matchId(), winner);
+        log.info("MATCH_FINISHED {} marcador={}-{} ganador={}", event.matchId(), homeScore, awayScore, winner);
     }
 }
