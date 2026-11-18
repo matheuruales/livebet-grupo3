@@ -14,12 +14,24 @@ class BetRequestEntity {
     @Column(nullable = false, precision = 19, scale = 2) private BigDecimal amount;
     @Column(nullable = false) private String status;
     @Column(nullable = false) private Instant createdAt;
+    @Column(precision = 19, scale = 2) private BigDecimal payout;
+    private Instant settledAt;
 
     protected BetRequestEntity() {}
     BetRequestEntity(String id, String userId, String matchId, String betOn, BigDecimal amount) {
         this.id = id; this.userId = userId; this.matchId = matchId; this.betOn = betOn; this.amount = amount;
         this.status = "ACCEPTED_FOR_PROCESSING"; this.createdAt = Instant.now();
     }
-    BetView view() { return new BetView(id, matchId, betOn, amount, status, createdAt); }
-    record BetView(String betId, String matchId, String betOn, BigDecimal amount, String status, Instant createdAt) {}
+    boolean pending() { return "ACCEPTED_FOR_PROCESSING".equals(status); }
+    String userId() { return userId; }
+    String matchId() { return matchId; }
+    void settle(boolean winner, BigDecimal payout, Instant at) {
+        if (!pending()) return;
+        this.status = winner ? "WON" : "LOST";
+        this.payout = winner ? payout : BigDecimal.ZERO;
+        this.settledAt = at;
+    }
+    BetView view() { return new BetView(id, matchId, betOn, amount, status, payout, createdAt, settledAt); }
+    record BetView(String betId, String matchId, String betOn, BigDecimal amount, String status,
+                   BigDecimal payout, Instant createdAt, Instant settledAt) {}
 }
