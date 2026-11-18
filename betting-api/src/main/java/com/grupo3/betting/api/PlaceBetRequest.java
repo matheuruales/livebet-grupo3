@@ -3,5 +3,5 @@ package com.grupo3.betting.api;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
-record PlaceBetRequest(@NotBlank String userId, @NotBlank String matchId, @NotBlank String betOn,
+record PlaceBetRequest(@NotBlank String matchId, @NotBlank String betOn,
                        @NotNull @DecimalMin(value="0.01") BigDecimal amount) {}

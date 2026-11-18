@@ -113,8 +113,18 @@ services:
   betting-api:
     <<: *app-common
     build: { context: ., dockerfile: betting-api/Dockerfile }
+    environment:
+      <<: *app-env
+      DATABASE_URL: jdbc:postgresql://postgres-db:5432/betting
+      POSTGRES_USER: ${POSTGRES_USER:-betting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-betting_secret}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-this-livebet-2026}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@livebet.co}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
     ports: ["8081:8081"]
-    depends_on: { kafka-init: { condition: service_completed_successfully } }
+    depends_on:
+      kafka-init: { condition: service_completed_successfully }
+      postgres-db: { condition: service_healthy }
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep UP"], interval: 10s, timeout: 4s, retries: 12 }
 
   email-worker:

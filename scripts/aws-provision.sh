@@ -22,6 +22,9 @@ aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG_ID" 
 
 POSTGRES_PASSWORD="$(openssl rand -hex 16)"
 RABBITMQ_PASSWORD="$(openssl rand -hex 16)"
+JWT_SECRET="$(openssl rand -hex 32)"
+ADMIN_EMAIL_VALUE="${ADMIN_EMAIL:-admin@livebet.co}"
+ADMIN_PASSWORD_VALUE="${ADMIN_PASSWORD:-LiveBetAdmin2026!}"
 cat > /tmp/livebet-user-data.sh <<EOF
 #!/bin/bash
 set -euxo pipefail
@@ -37,6 +40,9 @@ POSTGRES_USER=betting
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 RABBITMQ_USER=betting
 RABBITMQ_PASSWORD=$RABBITMQ_PASSWORD
+JWT_SECRET=$JWT_SECRET
+ADMIN_EMAIL=$ADMIN_EMAIL_VALUE
+ADMIN_PASSWORD=$ADMIN_PASSWORD_VALUE
 MATCH_DURATION_MS=60000
 GENERATION_INTERVAL_MS=10000
 ENV

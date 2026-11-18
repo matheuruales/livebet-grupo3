@@ -5,23 +5,23 @@ import com.grupo3.betting.domain.*;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.time.Instant;
-import java.util.Map;
-import java.util.UUID;
+import org.springframework.security.core.Authentication;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/bets")
 @CrossOrigin(origins = "*")
 class BetController {
-    private final BetPublisher publisher;
-    BetController(BetPublisher publisher) { this.publisher = publisher; }
+    private final BetService service;
+    BetController(BetService service) { this.service = service; }
     @PostMapping ResponseEntity<Map<String,Object>> place(@Valid @RequestBody PlaceBetRequest request) {
-        var userId = new UserId(request.userId()); var matchId = new MatchId(request.matchId()); new Money(request.amount());
-        String betId = "b-" + UUID.randomUUID().toString().substring(0, 8);
-        var event = new BetPlacedEvent(UUID.randomUUID().toString(), betId, userId.value(), matchId.value(),
-                request.betOn(), request.amount(), Instant.now());
-        publisher.publish(event);
-        return ResponseEntity.accepted().body(Map.of("status", "ACCEPTED_FOR_PROCESSING", "betId", betId,
-                "message", "La apuesta será validada por el motor de resultados"));
+        return ResponseEntity.accepted().body(service.place(currentUserId(), request));
+    }
+
+    @GetMapping List<BetRequestEntity.BetView> mine() { return service.mine(currentUserId()); }
+
+    private String currentUserId() {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return ((AuthPrincipal) authentication.getPrincipal()).userId();
     }
 }

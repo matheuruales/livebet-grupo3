@@ -6,6 +6,8 @@ Proyecto final de Computación Ubicua, **Grupo 3 de Sexto B**.
 
 LiveBet genera partidos aleatorios, recibe apuestas por HTTP, cierra cada partido mediante un temporizador distribuido, liquida los resultados y actualiza un dashboard en tiempo real. Kafka conserva el log inmutable de eventos; RabbitMQ programa tareas y enruta notificaciones; PostgreSQL guarda la auditoría consolidada.
 
+La experiencia web incluye registro e inicio de sesión, saldo demo individual, apuestas directamente desde cada partido, historial personal y un panel administrativo protegido por roles. Las contraseñas se almacenan con BCrypt y las sesiones se firman con HMAC-SHA256.
+
 ## Arquitectura
 
 ```mermaid
@@ -78,6 +80,24 @@ Las credenciales de desarrollo se encuentran en `.env`. Cambie todos los secreto
 
 ## Realizar una apuesta
 
+Desde el dashboard, cree una cuenta, seleccione cualquiera de los dos equipos de un partido abierto, elija el monto y confirme. Cada cuenta nueva recibe 250.000 COP de saldo demo.
+
+La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PASSWORD`; nunca conserve las credenciales de ejemplo en un despliegue público.
+
+### API de autenticación y usuarios
+
+| Método | Ruta | Acceso | Uso |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Público | Crear una cuenta |
+| `POST` | `/api/auth/login` | Público | Iniciar sesión y obtener token |
+| `GET` | `/api/auth/me` | Token | Perfil y saldo actual |
+| `POST` | `/api/bets` | Token | Registrar una apuesta |
+| `GET` | `/api/bets` | Token | Historial personal |
+| `GET` | `/api/admin/users` | ADMIN | Consultar usuarios |
+| `PATCH` | `/api/admin/users/{id}/balance` | ADMIN | Recargar saldo |
+| `PATCH` | `/api/admin/users/{id}/role` | ADMIN | Cambiar rol |
+| `PATCH` | `/api/admin/users/{id}/active` | ADMIN | Activar o desactivar cuenta |
+
 Primero copie del dashboard el identificador y el nombre exacto de un equipo abierto.
 
 ```bash
@@ -89,8 +109,8 @@ También puede usar HTTP directamente:
 ```bash
 curl -X POST http://localhost:8081/api/bets \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer TOKEN_DE_SESION' \
   -d '{
-    "userId":"user-101",
     "matchId":"m-12345678",
     "betOn":"Cúcuta",
     "amount":10000

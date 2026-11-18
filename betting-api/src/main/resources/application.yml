@@ -1,6 +1,13 @@
 server.port: 8081
 spring:
   application.name: betting-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://postgres-db:5432/betting}
+    username: ${POSTGRES_USER:betting}
+    password: ${POSTGRES_PASSWORD:betting_secret}
+  jpa:
+    hibernate.ddl-auto: update
+    open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     producer:
@@ -10,3 +17,9 @@ spring:
         enable.idempotence: true
         acks: all
 management.endpoints.web.exposure.include: health,info
+livebet:
+  jwt-secret: ${JWT_SECRET:dev-secret-change-this-livebet-2026}
+  token-hours: 12
+  initial-balance: 250000
+  admin-email: ${ADMIN_EMAIL:admin@livebet.co}
+  admin-password: ${ADMIN_PASSWORD:Admin123!}
