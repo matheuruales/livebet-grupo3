@@ -84,7 +84,7 @@ Las credenciales de desarrollo se encuentran en `.env`. Cambie todos los secreto
 
 Desde el dashboard, cree una cuenta, seleccione cualquiera de los dos equipos de un partido abierto, elija el monto y confirme. Cada cuenta nueva recibe 250.000 COP de saldo demo.
 
-El panel **Recargar saldo** incluye una pasarela completamente ficticia. Para la demostración use la tarjeta `4242 4242 4242 4242`, cualquier CVV de tres dígitos y una fecha futura. La aplicación valida la tarjeta, registra únicamente sus últimos cuatro dígitos y abona el monto al saldo; no use datos bancarios reales.
+El panel **Recargar saldo** incluye una simulación de pago. Acepta cualquier número ficticio de exactamente 16 cifras, una fecha con formato `MM/AA` y un código de seguridad de tres o cuatro cifras. La aplicación registra únicamente los últimos cuatro dígitos y abona el monto al saldo; no use datos bancarios reales.
 
 La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PASSWORD`; nunca conserve las credenciales de ejemplo en un despliegue público.
 
@@ -193,6 +193,14 @@ El segundo comando elimina de forma irreversible el volumen de PostgreSQL.
 
 ## Documentación adicional
 
+- [Centro de documentación](docs/README.md)
+- [Documentación técnica completa](docs/documentacion-tecnica-completa.md)
+- [Catálogo de diagramas](docs/diagramas.md)
+- [Referencia de API y eventos](docs/referencia-api-y-eventos.md)
+- [Modelo de datos](docs/modelo-de-datos.md)
+- [Operación, despliegue y seguridad](docs/operacion-despliegue-seguridad.md)
+- [Pruebas y trazabilidad](docs/pruebas-y-trazabilidad.md)
+- [Manual de usuario y administrador](docs/manual-de-usuario.md)
 - [Decisiones técnicas](docs/decisiones-tecnicas.md)
 - [Modelo y pruebas](docs/modelo-y-pruebas.md)
 - [Guía de demostración](docs/guia-demostracion.md)
