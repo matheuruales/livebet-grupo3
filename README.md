@@ -197,3 +197,4 @@ El segundo comando elimina de forma irreversible el volumen de PostgreSQL.
 - [Modelo y pruebas](docs/modelo-y-pruebas.md)
 - [Guía de demostración](docs/guia-demostracion.md)
 - [Despliegue en AWS](docs/despliegue-aws.md)
+- [Pipeline de GitHub Actions](docs/pipeline-github.md)

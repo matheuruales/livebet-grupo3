@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Acceso mínimo de GitHub Actions para desplegar LiveBet por SSM
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Description: Repositorio en formato propietario/repositorio
+  InstanceId:
+    Type: AWS::EC2::Instance::Id
+  ArtifactBucketName:
+    Type: String
+    AllowedPattern: "[a-z0-9.-]+"
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ""
+    Description: ARN opcional del proveedor token.actions.githubusercontent.com si ya existe
+
+Conditions:
+  CreateGitHubOidcProvider: !Equals [!Ref ExistingOidcProviderArn, ""]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateGitHubOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref ArtifactBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldReleases
+            Status: Enabled
+            ExpirationInDays: 14
+
+  GitHubDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: grupo3-livebet-github-deploy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Ref ExistingOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:environment:production"
+      Policies:
+        - PolicyName: DeployLiveBet
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject]
+                Resource: !Sub "${ArtifactBucket.Arn}/releases/*"
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript"
+                  - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}"
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations]
+                Resource: "*"
+
+Outputs:
+  AwsRoleArn:
+    Description: Valor para la variable AWS_ROLE_ARN de GitHub
+    Value: !GetAtt GitHubDeploymentRole.Arn
+  DeployBucket:
+    Description: Valor para DEPLOY_BUCKET
+    Value: !Ref ArtifactBucket

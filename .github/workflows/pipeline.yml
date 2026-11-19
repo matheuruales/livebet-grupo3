@@ -1,0 +1,196 @@
+name: LiveBet CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: livebet-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Pruebas y validaciones
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Ejecutar pruebas
+        run: mvn -B verify
+
+      - name: Validar Docker Compose
+        run: docker compose config --quiet
+
+      - name: Comprobar que no se versionaron secretos
+        run: |
+          test ! -f .env
+          ! git grep -nE '(MAIL_PASSWORD|AWS_SECRET_ACCESS_KEY)=[^$<{]' -- \
+            ':!.env.example' ':!README.md' ':!docs/**' ':!.github/workflows/pipeline.yml'
+
+  package:
+    name: Crear entrega inmutable
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      checksum: ${{ steps.release.outputs.checksum }}
+      artifact_name: ${{ steps.release.outputs.artifact_name }}
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Empaquetar solo archivos versionados
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_name="livebet-${GITHUB_SHA}.tgz"
+          git archive --format=tar.gz --output="$artifact_name" HEAD
+          checksum="$(sha256sum "$artifact_name" | awk '{print $1}')"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Guardar paquete de la ejecución
+        uses: actions/upload-artifact@v4
+        with:
+          name: livebet-release-${{ github.sha }}
+          path: ${{ steps.release.outputs.artifact_name }}
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Desplegar en AWS
+    if: github.event_name != 'pull_request' && vars.AWS_ROLE_ARN != ''
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: production
+      url: ${{ vars.DASHBOARD_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Descargar paquete aprobado
+        uses: actions/download-artifact@v4
+        with:
+          name: livebet-release-${{ github.sha }}
+
+      - name: Validar configuración de producción
+        env:
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          DEPLOY_BUCKET: ${{ vars.DEPLOY_BUCKET }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_ROLE_ARN"
+          test -n "$AWS_REGION"
+          test -n "$DEPLOY_BUCKET"
+          test -n "$EC2_INSTANCE_ID"
+          test -n "$DASHBOARD_URL"
+          test -n "$API_URL"
+
+      - name: Autenticarse en AWS mediante OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: livebet-${{ github.run_id }}
+
+      - name: Publicar paquete cifrado en S3
+        env:
+          ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
+          DEPLOY_BUCKET: ${{ vars.DEPLOY_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "$ARTIFACT_NAME" "s3://$DEPLOY_BUCKET/releases/$GITHUB_SHA.tgz" --sse AES256 --only-show-errors
+
+      - name: Desplegar mediante Systems Manager
+        env:
+          ARTIFACT_CHECKSUM: ${{ needs.package.outputs.checksum }}
+          DEPLOY_BUCKET: ${{ vars.DEPLOY_BUCKET }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_url="$(aws s3 presign "s3://$DEPLOY_BUCKET/releases/$GITHUB_SHA.tgz" --expires-in 3600)"
+          artifact_url_b64="$(printf '%s' "$artifact_url" | base64 -w 0)"
+          deploy_script_b64="$(base64 -w 0 scripts/deploy-release.sh)"
+          parameters="$(jq -cn \
+            --arg script "$deploy_script_b64" \
+            --arg url "$artifact_url_b64" \
+            --arg checksum "$ARTIFACT_CHECKSUM" \
+            --arg release "$GITHUB_SHA" \
+            '{commands:["set -eu",("echo " + $script + " | base64 -d > /tmp/livebet-deploy.sh"),"chmod 700 /tmp/livebet-deploy.sh",("sudo /tmp/livebet-deploy.sh " + $url + " " + $checksum + " " + $release)]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "LiveBet $GITHUB_SHA" \
+            --timeout-seconds 1800 \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          status="Pending"
+          for attempt in {1..90}; do
+            status="$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query Status \
+              --output text 2>/dev/null || true)"
+            case "$status" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut|Cancelling) break ;;
+            esac
+            if [[ "$attempt" -eq 90 ]]; then
+              status="TimedOut"
+              break
+            fi
+            sleep 20
+          done
+
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}'
+          test "$status" = "Success"
+
+      - name: Verificar sitio público
+        env:
+          DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --retry 12 --retry-all-errors --retry-delay 5 "$DASHBOARD_URL/actuator/health"
+          curl --fail --retry 12 --retry-all-errors --retry-delay 5 "$API_URL/actuator/health"
+
+      - name: Resumen del despliegue
+        run: |
+          {
+            echo "## LiveBet desplegado"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Dashboard: ${{ vars.DASHBOARD_URL }}"
+            echo "- API: ${{ vars.API_URL }}"
+          } >> "$GITHUB_STEP_SUMMARY"

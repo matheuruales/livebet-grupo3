@@ -23,6 +23,20 @@ aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG_ID" 
 POSTGRES_PASSWORD="$(openssl rand -hex 16)"
 RABBITMQ_PASSWORD="$(openssl rand -hex 16)"
 JWT_SECRET="$(openssl rand -hex 32)"
+EC2_ROLE_NAME="grupo3-livebet-ec2-ssm"
+EC2_PROFILE_NAME="grupo3-livebet-ec2-ssm"
+if ! aws iam get-role --role-name "$EC2_ROLE_NAME" >/dev/null 2>&1; then
+  TRUST_POLICY="$(mktemp)"
+  printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > "$TRUST_POLICY"
+  aws iam create-role --role-name "$EC2_ROLE_NAME" --assume-role-policy-document "file://$TRUST_POLICY" >/dev/null
+fi
+aws iam attach-role-policy --role-name "$EC2_ROLE_NAME" \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+if ! aws iam get-instance-profile --instance-profile-name "$EC2_PROFILE_NAME" >/dev/null 2>&1; then
+  aws iam create-instance-profile --instance-profile-name "$EC2_PROFILE_NAME" >/dev/null
+  aws iam add-role-to-instance-profile --instance-profile-name "$EC2_PROFILE_NAME" --role-name "$EC2_ROLE_NAME"
+  sleep 10
+fi
 ADMIN_EMAIL_VALUE="${ADMIN_EMAIL:-admin@livebet.co}"
 ADMIN_PASSWORD_VALUE="${ADMIN_PASSWORD:-LiveBetAdmin2026!}"
 MAIL_ENABLED_VALUE="${MAIL_ENABLED:-false}"
@@ -41,6 +55,7 @@ exec > /var/log/livebet-bootstrap.log 2>&1
 apt-get update
 apt-get install -y ca-certificates curl
 curl -fsSL https://get.docker.com | sh
+snap start amazon-ssm-agent || (snap install amazon-ssm-agent --classic && snap start amazon-ssm-agent)
 mkdir -p /opt/livebet
 curl -fL '$PRESIGNED' -o /tmp/livebet-grupo3.tgz
 tar -xzf /tmp/livebet-grupo3.tgz -C /opt/livebet
@@ -69,6 +84,7 @@ EOF
 AMI_ID="$(aws ssm get-parameter --region "$REGION" --name /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id --query Parameter.Value --output text)"
 INSTANCE_TYPE="${INSTANCE_TYPE:-m7i-flex.large}"
 INSTANCE_ID="$(aws ec2 run-instances --region "$REGION" --image-id "$AMI_ID" --instance-type "$INSTANCE_TYPE" \
+  --iam-instance-profile "Name=$EC2_PROFILE_NAME" \
   --network-interfaces "AssociatePublicIpAddress=true,DeviceIndex=0,Groups=$SG_ID,SubnetId=$SUBNET_ID" \
   --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}' \
   --metadata-options HttpTokens=required,HttpEndpoint=enabled \
