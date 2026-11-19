@@ -56,6 +56,18 @@ El script reproducible `scripts/aws-provision.sh` automatiza la creación del gr
 AWS_REGION=us-east-2 INSTANCE_TYPE=m7i-flex.large ./scripts/aws-provision.sh
 ```
 
+Para habilitar los correos en la instancia, entregue las variables SMTP al proceso sin escribirlas en el repositorio:
+
+```bash
+MAIL_ENABLED=true \
+MAIL_USERNAME=cuenta@gmail.com \
+MAIL_PASSWORD=contraseña_de_aplicación \
+MAIL_FROM_ADDRESS=cuenta@gmail.com \
+AWS_REGION=us-east-2 \
+INSTANCE_TYPE=m7i-flex.large \
+./scripts/aws-provision.sh livebet-v3.tgz
+```
+
 Como alternativa manual:
 
 ```bash
