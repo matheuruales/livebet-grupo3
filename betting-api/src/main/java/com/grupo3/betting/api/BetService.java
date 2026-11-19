@@ -20,7 +20,8 @@ class BetService {
         if (request.betOn().isBlank()) throw new IllegalArgumentException("El equipo es obligatorio");
         user.debit(request.amount());
         String betId = "b-" + UUID.randomUUID().toString().substring(0, 8);
-        var event = new BetPlacedEvent(UUID.randomUUID().toString(), betId, user.id(), matchId.value(), request.betOn().trim(), request.amount(), Instant.now());
+        var event = new BetPlacedEvent(UUID.randomUUID().toString(), betId, user.id(), user.email(),
+                matchId.value(), request.betOn().trim(), request.amount(), Instant.now());
         bets.save(new BetRequestEntity(betId, user.id(), matchId.value(), request.betOn().trim(), request.amount()));
         outbox.enqueue(event);
         return new PlaceBetResponse("ACCEPTED_FOR_PROCESSING", betId, user.balance(),

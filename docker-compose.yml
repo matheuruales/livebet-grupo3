@@ -134,6 +134,15 @@ services:
     <<: *app-common
     build: { context: ., dockerfile: email-worker/Dockerfile }
     networks: [messaging]
+    environment:
+      <<: *app-env
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-${MAIL_USERNAME:-}}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-LiveBet}
     depends_on: { rabbitmq: { condition: service_healthy } }
     deploy:
       replicas: 2

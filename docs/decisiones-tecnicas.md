@@ -19,6 +19,8 @@ El exchange `x-delayed-message` mantiene el comando de simulación hasta que ven
 
 RabbitMQ responde a la pregunta «¿quién debe ejecutar esta tarea o recibir esta notificación ahora?». Dos instancias de `email-worker` compiten por una cola compartida y evidencian reparto de carga.
 
+El evento de apuesta transporta la dirección registrada del usuario para que el motor y el worker permanezcan desacoplados de la tabla de cuentas. El worker usa Gmail por SMTP con STARTTLS obligatorio y genera versiones HTML y texto plano. Solo confirma el mensaje de RabbitMQ después de que el proveedor acepta el correo; ante errores se aplican reintentos y la cola de mensajes fallidos.
+
 ## PostgreSQL para auditoría formal
 
 Kafka conserva eventos, mientras PostgreSQL ofrece consultas relacionales sobre partidos cerrados, apuestas y liquidaciones. `results-engine` guarda el agregado consolidado dentro de una transacción. La tabla `processed_events` actúa como bandeja de entrada idempotente.

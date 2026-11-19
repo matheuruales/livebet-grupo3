@@ -22,19 +22,21 @@ class EventProcessorTest {
     private ObjectMapper mapper;
     private EventProcessor processor;
     private MatchRegistry registry;
+    private BetContactRegistry contacts;
 
     @BeforeEach void setup(){
         mapper = new ObjectMapper().findAndRegisterModules();
         registry = new MatchRegistry();
+        contacts = new BetContactRegistry();
         processor = new EventProcessor(mapper, events,
                 new MatchCreatedHandler(registry, notifications),
-                new BetPlacedHandler(registry, audits, notifications),
-                new MatchFinishedHandler(registry, matches, notifications));
+                new BetPlacedHandler(registry, contacts, audits, notifications),
+                new MatchFinishedHandler(registry, contacts, matches, notifications));
     }
     @Test void persistsAndNotifiesAfterSettlement() throws Exception {
         var start=Instant.now();
         process(new MatchCreatedEvent("e1","m1",List.of("A","B"),start,start.plusSeconds(60)));
-        process(new BetPlacedEvent("e2","b1","u1","m1","A",BigDecimal.TEN,Instant.now()));
+        process(new BetPlacedEvent("e2","b1","u1","user@example.com","m1","A",BigDecimal.TEN,Instant.now()));
         process(new MatchFinishedEvent("e3","m1","A",2,1,Instant.now()));
         verify(matches).save(any(MatchAuditEntity.class));
         verify(notifications).email(eq("notify.email.win"),any(EmailNotification.class));
@@ -44,7 +46,7 @@ class EventProcessorTest {
         var start=Instant.now();
         process(new MatchCreatedEvent("e1","m1",List.of("A","B"),start,start.plusSeconds(60)));
         process(new MatchFinishedEvent("e2","m1","B",0,3,Instant.now()));
-        process(new BetPlacedEvent("e3","b1","u1","m1","A",BigDecimal.TEN,Instant.now()));
+        process(new BetPlacedEvent("e3","b1","u1","user@example.com","m1","A",BigDecimal.TEN,Instant.now()));
         verify(notifications).email(eq("notify.email.rejected"),any(EmailNotification.class));
         verify(audits).save(any(BetAuditEntity.class));
     }
@@ -52,7 +54,7 @@ class EventProcessorTest {
         when(events.existsById(anyString())).thenReturn(true);
         var start = Instant.now();
         process(new MatchCreatedEvent("e1","m1",List.of("A","B"),start,start.plusSeconds(60)));
-        process(new BetPlacedEvent("e2","b1","u1","m1","A",BigDecimal.TEN,start.plusSeconds(5)));
+        process(new BetPlacedEvent("e2","b1","u1","user@example.com","m1","A",BigDecimal.TEN,start.plusSeconds(5)));
         process(new MatchFinishedEvent("e3","m1","A",2,1,start.plusSeconds(60)));
 
         assert registry.require("m1").status() == com.grupo3.betting.domain.MatchStatus.SETTLED;

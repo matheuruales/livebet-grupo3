@@ -18,12 +18,15 @@ import java.util.UUID;
 class MatchFinishedHandler {
     private static final Logger log = LoggerFactory.getLogger(MatchFinishedHandler.class);
     private final MatchRegistry registry;
+    private final BetContactRegistry contacts;
     private final MatchAuditRepository matches;
     private final NotificationPort notifications;
     private final PayoutStrategy payouts = new FixedOddsPayoutStrategy(BigDecimal.valueOf(2));
 
-    MatchFinishedHandler(MatchRegistry registry, MatchAuditRepository matches, NotificationPort notifications) {
+    MatchFinishedHandler(MatchRegistry registry, BetContactRegistry contacts, MatchAuditRepository matches,
+                         NotificationPort notifications) {
         this.registry = registry;
+        this.contacts = contacts;
         this.matches = matches;
         this.notifications = notifications;
     }
@@ -47,9 +50,11 @@ class MatchFinishedHandler {
             var bet = settlement.bet();
             audit.add(BetAuditEntity.settled(bet, settlement.winner(), settlement.payout().amount()));
             notifications.email(settlement.winner() ? "notify.email.win" : "notify.email.loss",
-                    new EmailNotification(UUID.randomUUID().toString(), bet.userId().value(), match.id().value(),
-                            settlement.winner() ? "WIN" : "LOSS",
-                            settlement.winner() ? settlement.payout().amount() : bet.stake().amount()));
+                    new EmailNotification(UUID.randomUUID().toString(), contacts.emailFor(bet.id().value()),
+                            bet.userId().value(), bet.id().value(), match.id().value(),
+                            settlement.winner() ? "WIN" : "LOSS", match.teams().get(0), match.teams().get(1),
+                            bet.team(), match.winner(), event.homeScore(), event.awayScore(), bet.stake().amount(),
+                            settlement.payout().amount(), event.occurredAt()));
         }
         matches.save(audit);
     }

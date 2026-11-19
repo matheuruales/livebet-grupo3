@@ -8,4 +8,20 @@ spring:
       acknowledge-mode: auto
       prefetch: 1
       retry: { enabled: true, max-attempts: 3, initial-interval: 1000ms }
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties.mail.smtp:
+      auth: true
+      starttls.enable: true
+      starttls.required: true
+      connectiontimeout: 10000
+      timeout: 10000
+      writetimeout: 10000
+livebet.mail:
+  enabled: ${MAIL_ENABLED:false}
+  from-address: ${MAIL_FROM_ADDRESS:${MAIL_USERNAME:}}
+  from-name: ${MAIL_FROM_NAME:LiveBet}
 management.endpoints.web.exposure.include: health,info

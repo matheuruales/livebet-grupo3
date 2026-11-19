@@ -36,7 +36,7 @@ La clave de cada registro en `match_events` es el `match_id`. Kafka asigna todos
 | `match-simulator` | Consume el temporizador y elige el ganador |
 | `results-engine` | Reconstruye agregados, aplica reglas, liquida y audita |
 | `dashboard-backend` | Consume cambios y los transmite por WebSocket |
-| `email-worker` | Procesa notificaciones con dos réplicas competitivas |
+| `email-worker` | Envía por Gmail correos HTML de apuestas ganadas, perdidas o reembolsadas; usa dos réplicas competitivas |
 | `shared-contracts` | Contratos inmutables entre servicios |
 | `domain` | Modelo rico independiente de Spring y de los brokers |
 
@@ -133,7 +133,7 @@ La API responde `202 Accepted` porque el motor valida la regla de negocio de for
 5. RabbitMQ entrega el comando cuando vence el tiempo.
 6. `match-simulator` publica `MATCH_FINISHED`.
 7. `results-engine` cierra el agregado, calcula pagos con cuota fija 2.0, persiste la auditoría y emite notificaciones.
-8. Una réplica de `email-worker` procesa cada mensaje y el dashboard muestra el resultado. Una apuesta tardía queda `REJECTED` y se reembolsa una sola vez.
+8. Una réplica de `email-worker` envía al correo registrado el resultado, marcador, selección, monto, premio y códigos de seguimiento. Una apuesta tardía queda `REJECTED`, se reembolsa una sola vez y también se notifica.
 
 Al iniciar, `results-engine` reproduce `match_events` desde `earliest` con un grupo nuevo. Los eventos auditados reconstruyen el estado y refrescan el dashboard, pero no vuelven a generar pagos, correos ni escrituras contables.
 
@@ -160,6 +160,22 @@ docker compose exec postgres-db psql -U betting -d betting -c \
 ```
 
 Los logs permiten observar el exchange diferido, las simulaciones, las liquidaciones y el reparto de notificaciones entre workers. La consola de RabbitMQ puede habilitarse temporalmente solo durante diagnóstico local.
+
+## Correos de resultados
+
+El envío utiliza SMTP autenticado con TLS. Para Gmail configure una contraseña de aplicación y manténgala únicamente en `.env`:
+
+```dotenv
+MAIL_ENABLED=true
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=cuenta@gmail.com
+MAIL_PASSWORD=contraseña_de_aplicación
+MAIL_FROM_ADDRESS=cuenta@gmail.com
+MAIL_FROM_NAME=LiveBet
+```
+
+`.env` está excluido de Git. Si el correo falla, RabbitMQ reintenta el mensaje y finalmente lo mueve a `email_notifications_dlq` para no perderlo silenciosamente.
 
 ## Detener el sistema
 
