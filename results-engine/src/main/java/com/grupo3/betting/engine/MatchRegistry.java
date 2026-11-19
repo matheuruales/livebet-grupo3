@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -45,4 +46,17 @@ class MatchRegistry {
     }
 
     Map<String, MatchAggregate> snapshot() { return Map.copyOf(matches); }
+
+    List<OverdueMatch> overdue(Instant now) {
+        return matches.values().stream()
+                .filter(match -> match.status() == com.grupo3.betting.domain.MatchStatus.OPEN_FOR_BETS)
+                .filter(match -> {
+                    Instant end = ends.get(match.id().value());
+                    return end != null && !now.isBefore(end.plusSeconds(3));
+                })
+                .map(match -> new OverdueMatch(match.id().value(), match.teams()))
+                .toList();
+    }
+
+    record OverdueMatch(String matchId, List<String> teams) {}
 }

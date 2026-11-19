@@ -19,11 +19,16 @@ class EmailTemplateRenderer {
         return switch (notification.outcome()) {
             case "WIN" -> "🎉 ¡Ganaste tu apuesta en LiveBet!";
             case "LOSS" -> "Resultado de tu apuesta en LiveBet";
+            case "ROULETTE_WIN" -> "🎉 ¡Ganaste en la ruleta LiveBet!";
+            case "ROULETTE_LOSS" -> "Resultado de tu jugada en la ruleta";
+            case "RECHARGE" -> "Recibo de tu recarga LiveBet";
             default -> "Tu apuesta fue reembolsada";
         };
     }
 
     String plainText(EmailNotification n) {
+        if ("RECHARGE".equals(n.outcome())) return rechargePlainText(n);
+        if (n.outcome().startsWith("ROULETTE_")) return roulettePlainText(n);
         return String.join("\n",
                 headline(n),
                 safe(n.homeTeam()) + " " + score(n.homeScore()) + " - " + score(n.awayScore()) + " " + safe(n.awayTeam()),
@@ -37,6 +42,8 @@ class EmailTemplateRenderer {
     }
 
     String html(EmailNotification n) {
+        if ("RECHARGE".equals(n.outcome())) return rechargeHtml(n);
+        if (n.outcome().startsWith("ROULETTE_")) return rouletteHtml(n);
         String accent = switch (n.outcome()) { case "WIN" -> "#34d399"; case "LOSS" -> "#ff7849"; default -> "#facc15"; };
         String badge = switch (n.outcome()) { case "WIN" -> "APUESTA GANADA"; case "LOSS" -> "APUESTA FINALIZADA"; default -> "APUESTA REEMBOLSADA"; };
         String date = n.occurredAt() == null ? "—" : DATE.format(n.occurredAt());
@@ -88,6 +95,60 @@ class EmailTemplateRenderer {
     }
 
     private String payoutLabel(EmailNotification n) { return "REJECTED".equals(n.outcome()) ? "Monto devuelto" : "Premio total"; }
+
+    private String rechargePlainText(EmailNotification n) {
+        return String.join("\n", "Recarga aprobada", "Monto: " + money(n.stake()),
+                "Tarjeta terminada en: " + safe(n.cardLast4()), "Nuevo saldo: " + money(n.balance()),
+                "Referencia: " + safe(n.reference()), "Fecha: " + DATE.format(n.occurredAt()),
+                "Gracias por usar LiveBet.");
+    }
+
+    private String roulettePlainText(EmailNotification n) {
+        return String.join("\n", "ROULETTE_WIN".equals(n.outcome()) ? "Jugada ganada" : "Jugada finalizada",
+                "Tu selección: " + safe(n.selectedTeam()), "Resultado: " + safe(n.winner()),
+                "Monto apostado: " + money(n.stake()), "Premio: " + money(n.payout()),
+                "Jugada: " + safe(n.betId()), "Ronda: " + safe(n.matchId()),
+                "Fecha: " + DATE.format(n.occurredAt()));
+    }
+
+    private String rechargeHtml(EmailNotification n) {
+        return emailShell("RECARGA APROBADA", "#54c7ec", "Tu saldo ya está disponible",
+                "Procesamos correctamente tu recarga en LiveBet.",
+                row("Monto recargado", money(n.stake())) + row("Tarjeta", "•••• " + safe(n.cardLast4()))
+                        + row("Referencia", n.reference()) + row("Fecha", DATE.format(n.occurredAt())),
+                "NUEVO SALDO", money(n.balance()));
+    }
+
+    private String rouletteHtml(EmailNotification n) {
+        boolean won = "ROULETTE_WIN".equals(n.outcome());
+        String accent = won ? "#34d399" : "#ff7849";
+        return emailShell(won ? "JUGADA GANADA" : "JUGADA FINALIZADA", accent,
+                won ? "¡La ruleta estuvo de tu lado!" : "La ronda ha terminado",
+                won ? "Tu premio ya fue agregado automáticamente a tu saldo." : "Esta vez tu selección no coincidió con el resultado.",
+                row("Tu selección", n.selectedTeam()) + row("Número ganador", n.winner())
+                        + row("Monto apostado", money(n.stake())) + row("Jugada", n.betId())
+                        + row("Ronda", n.matchId()),
+                won ? "PREMIO TOTAL" : "RESULTADO", won ? money(n.payout()) : "Sin premio");
+    }
+
+    private String emailShell(String badge, String accent, String title, String description,
+                              String rows, String totalLabel, String totalValue) {
+        return """
+                <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                <body style="margin:0;background:#f5efe2;font-family:Arial,Helvetica,sans-serif;color:#202126">
+                  <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="background:#f5efe2;padding:28px 12px"><tr><td align="center">
+                    <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fffdf8;border:3px solid #202126;border-radius:20px;overflow:hidden;box-shadow:8px 8px 0 #202126">
+                      <tr><td style="background:#202126;padding:24px 30px;color:#fff"><span style="font-size:30px;font-weight:900">LIVE<span style="color:#ff7139">BET</span></span><span style="float:right;background:%s;color:#202126;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:900">%s</span></td></tr>
+                      <tr><td style="padding:34px 30px 10px"><h1 style="margin:0 0 10px;font-size:30px">%s</h1><p style="margin:0;color:#65666b;font-size:16px;line-height:1.5">%s</p></td></tr>
+                      <tr><td style="padding:18px 30px"><table role="presentation" width="100%%" cellspacing="0" cellpadding="0">%s</table></td></tr>
+                      <tr><td style="padding:4px 30px 32px"><div style="background:%s;border:2px solid #202126;border-radius:14px;padding:18px;text-align:center"><div style="font-size:13px;font-weight:800">%s</div><div style="font-size:34px;font-weight:900;margin-top:5px">%s</div></div></td></tr>
+                      <tr><td style="background:#202126;color:#d7d2c8;padding:20px 30px;font-size:12px">Este es un mensaje automático de LiveBet. Nunca te pediremos datos completos de tu tarjeta por correo.</td></tr>
+                    </table>
+                  </td></tr></table>
+                </body></html>
+                """.formatted(accent, escape(badge), escape(title), escape(description), rows,
+                accent, escape(totalLabel), escape(totalValue));
+    }
     private String score(Integer value) { return value == null ? "—" : value.toString(); }
     private String safe(String value) { return value == null || value.isBlank() ? "—" : value; }
     private String row(String label, String value) {

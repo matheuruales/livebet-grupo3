@@ -11,4 +11,5 @@ class ProcessedEventEntity {
     ProcessedEventEntity(String eventId,String eventType,String matchId,String payload) {
         this.eventId=eventId;this.eventType=eventType;this.matchId=matchId;this.payload=payload;this.processedAt=Instant.now();
     }
+    String payload() { return payload; }
 }

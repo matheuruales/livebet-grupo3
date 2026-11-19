@@ -11,10 +11,11 @@ class RechargeServiceTest {
     void apruebaUnaTarjetaFicticiaYAbonaElSaldo() {
         var users = mock(UserAccountRepository.class);
         var recharges = mock(RechargeRepository.class);
+        var emails = mock(AccountEmailNotifier.class);
         var user = new UserAccount("Matheu", "matheu@example.com", "hash", UserAccount.Role.USER, new BigDecimal("250000"));
         when(users.findByIdForUpdate(user.id())).thenReturn(Optional.of(user));
         when(recharges.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        var service = new RechargeService(users, recharges);
+        var service = new RechargeService(users, recharges, emails);
 
         var result = service.recharge(user.id(), new RechargeRequest(new BigDecimal("50000"), "Matheu Ruales",
                 "4242 4242 4242 4242", "12/30", "123"));
@@ -23,16 +24,24 @@ class RechargeServiceTest {
         assertThat(result.cardLast4()).isEqualTo("4242");
         assertThat(result.balance()).isEqualByComparingTo("300000");
         verify(recharges).save(any(RechargeTransaction.class));
+        verify(emails).send(eq("notify.email.recharge"), any());
     }
 
     @Test
     void rechazaUnaTarjetaInvalidaSinCambiarElSaldo() {
         var users = mock(UserAccountRepository.class);
-        var service = new RechargeService(users, mock(RechargeRepository.class));
+        var service = new RechargeService(users, mock(RechargeRepository.class), mock(AccountEmailNotifier.class));
 
         assertThatThrownBy(() -> service.recharge("u-1", new RechargeRequest(new BigDecimal("50000"), "Matheu Ruales",
-                "4242 4242 4242 4241", "12/30", "123")))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("rechazada");
+                "1234 5678 9012 345", "12/30", "123")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("16 cifras");
         verifyNoInteractions(users);
+    }
+
+    @Test
+    void aceptaCualquierCombinacionDeDieciseisCifras() {
+        assertThat(RechargeService.validCard("1111222233334444")).isTrue();
+        assertThat(RechargeService.validCard("9876543210123456")).isTrue();
+        assertThat(RechargeService.validCard("123456789012345")).isFalse();
     }
 }

@@ -33,14 +33,16 @@ class MatchFinishedHandler {
 
     void handle(MatchFinishedEvent event, boolean firstProcessing) {
         MatchAggregate match = registry.require(event.matchId());
-        if (match.status() == MatchStatus.SETTLED) return;
-        match.finish(event.winner());
-        match.settle(payouts);
-        registry.score(event.matchId(), event.homeScore(), event.awayScore());
-        if (firstProcessing) persistAndNotify(event, match);
-        notifications.dashboard("notify.dashboard.finished", registry.dashboard(match, event.occurredAt()));
-        log.info("Partido {} liquidado, marcador={}-{}, ganador={}, apuestas={}", match.id().value(),
-                event.homeScore(), event.awayScore(), match.winner(), match.bets().size());
+        synchronized (match) {
+            if (match.status() == MatchStatus.SETTLED) return;
+            match.finish(event.winner());
+            match.settle(payouts);
+            registry.score(event.matchId(), event.homeScore(), event.awayScore());
+            if (firstProcessing) persistAndNotify(event, match);
+            notifications.dashboard("notify.dashboard.finished", registry.dashboard(match, event.occurredAt()));
+            log.info("Partido {} liquidado, marcador={}-{}, ganador={}, apuestas={}", match.id().value(),
+                    event.homeScore(), event.awayScore(), match.winner(), match.bets().size());
+        }
     }
 
     private void persistAndNotify(MatchFinishedEvent event, MatchAggregate match) {

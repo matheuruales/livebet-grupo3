@@ -16,6 +16,10 @@ spring:
       properties:
         enable.idempotence: true
         acks: all
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    username: ${RABBITMQ_USER:betting}
+    password: ${RABBITMQ_PASSWORD:betting_secret}
 management.endpoints.web.exposure.include: health,info
 livebet:
   jwt-secret: ${JWT_SECRET:dev-secret-change-this-livebet-2026}

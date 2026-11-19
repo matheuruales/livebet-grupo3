@@ -7,16 +7,20 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
+import com.grupo3.betting.contracts.EmailNotification;
 
 @Service
 class RouletteService {
     private final RouletteRoundRepository rounds;
     private final RouletteBetRepository bets;
     private final UserAccountRepository users;
+    private final AccountEmailNotifier emails;
     private final SecureRandom random = new SecureRandom();
 
-    RouletteService(RouletteRoundRepository rounds, RouletteBetRepository bets, UserAccountRepository users) {
-        this.rounds = rounds; this.bets = bets; this.users = users;
+    RouletteService(RouletteRoundRepository rounds, RouletteBetRepository bets, UserAccountRepository users,
+                    AccountEmailNotifier emails) {
+        this.rounds = rounds; this.bets = bets; this.users = users; this.emails = emails;
     }
 
     @Scheduled(fixedDelay = 500)
@@ -69,7 +73,13 @@ class RouletteService {
         for (RouletteBet bet : bets.findByRoundIdAndStatus(round.id(), RouletteBet.Status.PENDING)) {
             boolean won = RouletteRules.wins(bet.selectionType(), bet.selectionValue(), result);
             BigDecimal payout = won ? RouletteRules.payout(bet.amount(), RouletteRules.validate(bet.selectionType(), bet.selectionValue()).multiplier()) : BigDecimal.ZERO;
-            if (won) users.findByIdForUpdate(bet.userId()).ifPresent(user -> user.credit(payout));
+            users.findByIdForUpdate(bet.userId()).ifPresent(user -> {
+                if (won) user.credit(payout);
+                emails.send(won ? "notify.email.roulette-win" : "notify.email.roulette-loss",
+                        EmailNotification.roulette(UUID.randomUUID().toString(), user.email(), user.id(),
+                                bet.id(), round.id(), won, bet.selectionLabel(), result, color(result),
+                                bet.amount(), payout, Instant.now()));
+            });
             bet.settle(won, payout);
         }
         round.settle();

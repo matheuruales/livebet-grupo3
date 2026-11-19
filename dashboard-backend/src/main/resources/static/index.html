@@ -52,20 +52,20 @@
       </div>
     </div>
   </section>
-  <section id="historyView" class="container panel hidden"><div class="section-head"><div><h2>Mis apuestas</h2><p>Consulta tus selecciones, montos y estado de procesamiento.</p></div><button class="btn btn-blue" id="refreshHistory">Actualizar</button></div><div class="panel-card"><div id="historyList" class="history-list"></div></div></section>
+  <section id="historyView" class="container panel hidden"><div class="section-head"><div><h2>Mis apuestas</h2><p>Consulta en un solo lugar tus apuestas de partidos y tus jugadas de ruleta.</p></div><button class="btn btn-blue" id="refreshHistory">Actualizar</button></div><div class="panel-card"><div id="historyList" class="history-list"></div><div id="historyPagination" class="history-pagination hidden"><button id="historyPrev">Anterior</button><span id="historyPageLabel">Página 1</span><button id="historyNext">Siguiente</button></div></div></section>
   <section id="rechargeView" class="container panel recharge-view hidden">
     <div class="section-head"><div><span class="eyebrow"><i></i> PAGOS LIVEBET</span><h2>Recargar saldo</h2><p>Agrega fondos a tu cuenta de forma rápida y continúa disfrutando tus partidos favoritos.</p></div><div class="current-balance"><span>SALDO ACTUAL</span><b id="rechargeBalance">$0</b></div></div>
     <div class="recharge-grid">
       <div class="payment-card-wrap">
-        <div class="credit-card"><div class="card-top"><span class="card-chip"></span><b>LIVEBET</b></div><div id="cardPreviewNumber" class="card-number">•••• •••• •••• 4242</div><div class="card-bottom"><div><small>TITULAR</small><b id="cardPreviewName">TU NOMBRE</b></div><div><small>VENCE</small><b id="cardPreviewExpiry">MM/AA</b></div></div></div>
-        <div class="demo-notice"><b>Recarga rápida y segura</b><p>Utiliza la tarjeta habilitada <strong>4242 4242 4242 4242</strong>, una fecha futura y tu código de seguridad.</p></div>
+        <div class="credit-card"><div class="card-top"><span class="card-chip"></span><b>LIVEBET</b></div><div id="cardPreviewNumber" class="card-number">•••• •••• •••• ••••</div><div class="card-bottom"><div><small>TITULAR</small><b id="cardPreviewName">TU NOMBRE</b></div><div><small>VENCE</small><b id="cardPreviewExpiry">MM/AA</b></div></div></div>
+        <div class="demo-notice"><b>Confirmación inmediata</b><p>Al completar la recarga recibirás un recibo detallado en el correo de tu cuenta.</p></div>
       </div>
       <div class="panel-card recharge-form-card">
         <form id="rechargeForm" class="form">
           <div class="field"><label for="rechargeAmount">Monto de la recarga</label><div class="money-input"><span>$</span><input id="rechargeAmount" type="number" min="5000" max="2000000" step="1000" value="50000" required></div></div>
           <div class="quick-amounts recharge-amounts"><button type="button" data-recharge-amount="20000">$20K</button><button class="active" type="button" data-recharge-amount="50000">$50K</button><button type="button" data-recharge-amount="100000">$100K</button><button type="button" data-recharge-amount="250000">$250K</button></div>
           <div class="field"><label for="cardholder">Nombre del titular</label><input id="cardholder" autocomplete="cc-name" maxlength="80" placeholder="Como aparece en la tarjeta" required></div>
-          <div class="field"><label for="cardNumber">Número de tarjeta</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" required></div>
+          <div class="field"><label for="cardNumber">Número de tarjeta</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" minlength="19" maxlength="19" placeholder="0000 0000 0000 0000" required></div>
           <div class="card-fields"><div class="field"><label for="cardExpiry">Vencimiento</label><input id="cardExpiry" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/AA" required></div><div class="field"><label for="cardCvv">CVV</label><input id="cardCvv" type="password" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123" required></div></div>
           <p class="payment-security">🔒 Tus datos están protegidos y no almacenamos el número completo de tu tarjeta.</p>
           <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Pagar y recargar →</button>
@@ -80,5 +80,5 @@
 <dialog id="betDialog"><div class="modal"><div class="modal-head"><div><span class="eyebrow"><i></i> NUEVA APUESTA</span><h2>Confirma tu jugada</h2></div><button class="modal-close" data-close>×</button></div><div id="betSummary" class="bet-summary"></div><form id="betForm" class="form"><div class="field"><label for="betTeam">Equipo seleccionado</label><select id="betTeam"></select></div><div class="field"><label for="betAmount">Monto en COP</label><input id="betAmount" type="number" min="1000" step="1000" value="10000" required></div><div class="quick-amounts"><button type="button" data-amount="5000">$5K</button><button type="button" data-amount="10000">$10K</button><button type="button" data-amount="25000">$25K</button><button type="button" data-amount="50000">$50K</button></div><p id="betError" class="form-error"></p><button class="btn btn-orange" type="submit">Registrar apuesta →</button></form></div></dialog>
 <div id="toast" class="toast"></div>
 <footer><div class="container footer-inner"><div><b>LIVE<span>BET</span></b><p>La emoción del deporte se vive en cada jugada.</p></div><p>Apuestas en vivo · Resultados al instante · Premios directos</p></div></footer>
-<script src="/app.js?v=20261118-wheel-numbers"></script>
+<script src="/app.js?v=20261118-history-receipts"></script>
 </body></html>
