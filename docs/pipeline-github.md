@@ -1,70 +1,44 @@
 # Pipeline de GitHub Actions
 
-La canalización `.github/workflows/pipeline.yml` ejecuta tres etapas:
+La canalización `.github/workflows/pipeline.yml` está conectada al repositorio privado `matheuruales/livebet-grupo3` y a la instancia AWS EC2 de producción.
 
-1. **Pruebas:** compila todos los módulos, ejecuta las pruebas, valida Docker Compose y comprueba que no se haya versionado `.env`.
-2. **Paquete:** crea un `.tgz` únicamente con archivos rastreados por Git y publica su checksum SHA-256.
-3. **Despliegue:** obtiene credenciales temporales de AWS mediante OIDC, almacena el paquete cifrado en S3 y ordena el despliegue a EC2 mediante Systems Manager. La instancia conserva su `.env` privado y revierte a la versión anterior si las comprobaciones fallan.
+## Funcionamiento
 
-Los `pull_request` solo ejecutan pruebas. Los `push` a `main` y las ejecuciones manuales despliegan a `production`. El entorno de GitHub puede configurarse para exigir aprobación antes de desplegar.
-Mientras `AWS_ROLE_ARN` no esté configurada, GitHub ejecuta las pruebas y genera el paquete, pero omite el despliegue; así la primera publicación del repositorio no produce un fallo artificial.
+1. **Pruebas:** compila todos los módulos, ejecuta las pruebas, valida Docker Compose y comprueba que `.env` no esté versionado.
+2. **Paquete:** crea un `.tgz` únicamente con archivos rastreados por Git y calcula su checksum SHA-256.
+3. **Despliegue:** el ejecutor privado `livebet-aws-production`, instalado como servicio dentro de la EC2, descarga el paquete aprobado y lo instala en `/opt/livebet/releases/<commit>`.
+4. **Verificación:** GitHub comprueba la salud del dashboard y la API. Si la versión nueva no responde, el script vuelve a levantar la anterior.
 
-## 1. Publicar el repositorio
+Los `pull_request` solo ejecutan pruebas. Cada `push` a `main` y cada ejecución manual despliegan automáticamente a `production`.
 
-Este directorio todavía no tiene un remoto. Cree un repositorio privado o público en GitHub y conecte el proyecto:
+## Configuración ya creada
 
-```bash
-git remote add origin https://github.com/PROPIETARIO/REPOSITORIO.git
-git push -u origin main
+El entorno de GitHub `production` contiene:
+
+| Tipo | Nombre | Uso |
+|---|---|---|
+| Variable | `DASHBOARD_URL` | Salud y enlace del sitio público |
+| Variable | `API_URL` | Salud de la API pública |
+| Secreto cifrado | `PRODUCTION_ENV` | PostgreSQL, RabbitMQ, JWT, administrador y Gmail SMTP |
+
+El `.env` real nunca se agrega al repositorio ni se imprime en los registros. Durante el despliegue se crea con permisos privados, se copia a la nueva versión y se elimina la copia temporal incluso si el trabajo falla.
+
+## Ejecutor privado
+
+El ejecutor está registrado con las etiquetas `self-hosted`, `Linux`, `X64` y `livebet-production`. En la EC2 funciona como el servicio:
+
+```text
+actions.runner.matheuruales-livebet-grupo3.livebet-aws-production.service
 ```
 
-## 2. Preparar AWS una sola vez
+No necesita llaves AWS ni una llave SSH guardada en GitHub. La cuenta AWS utilizada por el proyecto restringe mediante una política de organización la creación de roles OIDC; por eso el ejecutor reside directamente en la instancia y realiza el despliegue local.
 
-La EC2 debe aparecer como nodo administrado en Systems Manager. Las instancias nuevas creadas con `scripts/aws-provision.sh` ya reciben el perfil `grupo3-livebet-ec2-ssm`.
+## Actualizar variables privadas
 
-Cree el rol OIDC y el bucket de entregas con la plantilla incluida:
-
-```bash
-aws cloudformation deploy \
-  --region us-east-2 \
-  --stack-name grupo3-livebet-github \
-  --template-file infrastructure/aws/github-actions-oidc.yml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    GitHubRepository=PROPIETARIO/REPOSITORIO \
-    InstanceId=i-0e23ab3097f20bc1d \
-    ArtifactBucketName=grupo3-livebet-deploy-ID_UNICO
-```
-
-Si la cuenta ya tiene configurado el proveedor OIDC `token.actions.githubusercontent.com`, añada `ExistingOidcProviderArn=ARN_EXISTENTE` a `--parameter-overrides`. La plantilla reutilizará ese proveedor en lugar de intentar duplicarlo.
-
-La confianza OIDC está restringida al repositorio indicado y al entorno `production`. Esto coincide con el formato de identidad que GitHub emite cuando un trabajo utiliza un environment.
-
-Para preparar la instancia ya existente y confirmar que aparezca en **Systems Manager → Fleet Manager**, ejecute:
-
-```bash
-AWS_REGION=us-east-2 ./scripts/aws-enable-ssm.sh i-0e23ab3097f20bc1d
-```
-
-## 3. Variables de GitHub
-
-En **Settings → Environments → production**, agregue estas variables; no son secretos:
-
-| Variable | Ejemplo |
-|---|---|
-| `AWS_ROLE_ARN` | Salida `AwsRoleArn` de CloudFormation |
-| `AWS_REGION` | `us-east-2` |
-| `DEPLOY_BUCKET` | Salida `DeployBucket` de CloudFormation |
-| `EC2_INSTANCE_ID` | `i-0e23ab3097f20bc1d` |
-| `DASHBOARD_URL` | `http://18.224.52.92:8080` |
-| `API_URL` | `http://18.224.52.92:8081` |
-
-No se necesitan `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, llaves SSH ni la contraseña de Gmail en GitHub.
-
-## 4. Configuración privada del servidor
-
-El archivo `/opt/livebet/.env` se configura una sola vez en EC2. Cada despliegue lo copia a la nueva versión sin imprimirlo en los registros. Debe contener las variables de PostgreSQL, RabbitMQ, JWT, administrador y correo SMTP.
+Si cambia una contraseña o configuración, actualice el secreto completo `PRODUCTION_ENV` en **GitHub → Settings → Environments → production**. Debe conservar el formato `CLAVE=valor`, una variable por línea.
 
 ## Recuperación
 
-Cada entrega queda en `/opt/livebet/releases/<commit>`. Si las rutas de salud no responden, `scripts/deploy-release.sh` vuelve a levantar la versión anterior y GitHub marca el despliegue como fallido.
+Cada entrega queda en `/opt/livebet/releases/<commit>` y el enlace `/opt/livebet/current` señala la versión activa. `scripts/deploy-release.sh` valida el paquete, levanta los contenedores, comprueba dashboard y API y ejecuta la reversión automática si algo falla.
+
+El historial y los saldos permanecen en los volúmenes de Docker; publicar una nueva versión no recrea esos datos.

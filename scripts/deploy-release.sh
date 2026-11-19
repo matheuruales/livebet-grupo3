@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 3 ]]; then
-  printf 'Uso: deploy-release.sh URL_BASE64 SHA256 RELEASE_ID\n' >&2
+if [[ "$#" -lt 3 || "$#" -gt 4 ]]; then
+  printf 'Uso: deploy-release.sh URL_BASE64 SHA256 RELEASE_ID [ENV_FILE]\n' >&2
   exit 2
 fi
 
@@ -13,6 +13,7 @@ LIVEBET_ROOT="/opt/livebet"
 RELEASES_ROOT="$LIVEBET_ROOT/releases"
 RELEASE_DIR="$RELEASES_ROOT/$RELEASE_ID"
 ARCHIVE_PATH="/tmp/livebet-$RELEASE_ID.tgz"
+ENV_FILE="${4:-}"
 
 case "$RELEASE_ID" in
   *[!a-f0-9]*|'') printf 'Identificador de versión inválido\n' >&2; exit 2 ;;
@@ -40,15 +41,16 @@ fi
 mkdir "$RELEASE_DIR"
 tar -xzf "$ARCHIVE_PATH" -C "$RELEASE_DIR"
 
-if [[ -f "$LIVEBET_ROOT/current/.env" ]]; then
-  ENV_SOURCE="$LIVEBET_ROOT/current/.env"
+if [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]]; then
+  install -m 600 "$ENV_FILE" "$RELEASE_DIR/.env"
+elif [[ -f "$LIVEBET_ROOT/current/.env" ]]; then
+  install -m 600 "$LIVEBET_ROOT/current/.env" "$RELEASE_DIR/.env"
 elif [[ -f "$LIVEBET_ROOT/.env" ]]; then
-  ENV_SOURCE="$LIVEBET_ROOT/.env"
+  install -m 600 "$LIVEBET_ROOT/.env" "$RELEASE_DIR/.env"
 else
-  printf 'No existe la configuración privada /opt/livebet/.env\n' >&2
+  printf 'No se pudo obtener la configuración privada de producción\n' >&2
   exit 1
 fi
-install -m 600 "$ENV_SOURCE" "$RELEASE_DIR/.env"
 
 if [[ -L "$LIVEBET_ROOT/current" ]]; then
   PREVIOUS_RELEASE="$(readlink -f "$LIVEBET_ROOT/current")"
