@@ -63,6 +63,15 @@ docker compose config --quiet
 docker compose build
 docker compose up -d --remove-orphans
 
+print_diagnostics() {
+  printf '\nEstado de los contenedores de la versión que falló:\n' >&2
+  docker compose ps --all >&2 || true
+  printf '\nÚltimos registros de los servicios de aplicación:\n' >&2
+  docker compose logs --no-color --tail=120 \
+    dashboard-backend betting-api match-generator match-simulator \
+    results-engine email-worker >&2 || true
+}
+
 healthy=false
 attempts=0
 while (( attempts < 36 )); do
@@ -77,6 +86,7 @@ done
 
 if [[ "$healthy" != "true" ]]; then
   printf 'La nueva versión no superó las comprobaciones; iniciando reversión\n' >&2
+  print_diagnostics
   cd "$PREVIOUS_RELEASE"
   docker compose up -d --build --remove-orphans
   exit 1
