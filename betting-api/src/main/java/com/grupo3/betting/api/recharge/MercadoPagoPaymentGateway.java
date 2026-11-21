@@ -5,6 +5,7 @@ import com.mercadopago.core.MPRequestOptions;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.order.Order;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
     private final MercadoPagoProperties properties;
     private final OrderClient client;
 
+    @Autowired
     MercadoPagoPaymentGateway(MercadoPagoProperties properties) {
         this(properties, new OrderClient());
     }
