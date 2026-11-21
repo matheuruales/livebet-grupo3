@@ -345,7 +345,9 @@ Las routing keys actuales incluyen `created`, `updated`, `finished`, `win`, `los
 - Secretos de producción en GitHub Environment.
 - `.env` excluido de Git.
 - SMTP mediante STARTTLS obligatorio.
-- La tarjeta completa y el CVV no se persisten.
+- LiveBet no captura la tarjeta ni el CVV: el pago se completa en Checkout Pro.
+- Webhook de Mercado Pago validado con firma HMAC y consulta server-to-server.
+- Clave de idempotencia, referencias únicas y bloqueo transaccional contra doble abono.
 
 ### 13.2 Limitaciones conocidas
 

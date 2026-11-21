@@ -1,59 +1,34 @@
-# Nombre general del proyecto. Docker usa este nombre para agrupar sus contenedores.
 name: grupo3-live-betting
 
-# Configuración común para los servicios creados por el equipo.
-# El símbolo &app-common permite reutilizar este bloque y evitar repetir código.
 x-app-common: &app-common
-  # Si un servicio falla o se reinicia el equipo, Docker intenta levantarlo otra vez.
   restart: unless-stopped
-
-  # Direcciones y credenciales que los servicios usan para comunicarse con Kafka y RabbitMQ.
-  # Los valores entre ${...} se leen del archivo .env; después de :- aparece el valor predeterminado.
   environment: &app-env
     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     RABBITMQ_HOST: rabbitmq
     RABBITMQ_USER: ${RABBITMQ_USER:-betting}
     RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-betting_secret}
-
-  # Límites generales de procesador y memoria para no consumir todos los recursos del servidor.
   deploy:
     resources:
       limits: { cpus: "0.50", memory: 384M }
       reservations: { memory: 128M }
 
-# Lista de contenedores que forman toda la aplicación.
 services:
-  # Zookeeper coordina Kafka y guarda información sobre su funcionamiento.
   zookeeper:
-    # Imagen ya preparada que se descarga desde Internet.
     image: confluentinc/cp-zookeeper:7.7.1
     restart: unless-stopped
-
-    # Puerto interno y tiempo de control usados por Zookeeper.
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-
-    # Solo se conecta a la red interna de mensajería.
     networks: [messaging]
-
-    # Comprueba periódicamente que Zookeeper esté listo para trabajar.
     healthcheck: { test: ["CMD-SHELL", "echo srvr | nc localhost 2181 | grep 'Mode:'"], interval: 10s, timeout: 5s, retries: 10 }
-
-    # Máximo de procesador y memoria que puede utilizar.
     deploy:
       resources:
         limits: { cpus: "0.50", memory: 512M }
 
-  # Kafka recibe y distribuye los eventos de los partidos entre los servicios.
   kafka:
     image: confluentinc/cp-kafka:7.7.1
     restart: unless-stopped
-
-    # Kafka solo inicia cuando Zookeeper confirma que está funcionando correctamente.
     depends_on: { zookeeper: { condition: service_healthy } }
-
-    # Configura el servidor Kafka, sus direcciones internas y la forma de guardar los eventos.
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -64,132 +39,83 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-
-    # El puerto queda disponible para los otros contenedores, pero no se publica fuera de Docker.
     expose: ["29092"]
     networks: [messaging]
-
-    # Verifica que Kafka responda antes de permitir que dependan de él otros servicios.
     healthcheck: { test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092 >/dev/null 2>&1"], interval: 10s, timeout: 6s, retries: 15 }
     deploy:
       resources:
         limits: { cpus: "1.00", memory: 1G }
 
-  # Servicio temporal que crea el canal "match_events" donde se publican los eventos de partidos.
   kafka-init:
     image: confluentinc/cp-kafka:7.7.1
-
-    # Espera hasta que Kafka esté saludable.
     depends_on: { kafka: { condition: service_healthy } }
-
-    # Crea el canal solo si todavía no existe y conserva sus eventos durante siete días.
     command: ["bash", "-c", "kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic match_events --partitions 3 --replication-factor 1 --config retention.ms=604800000"]
     networks: [messaging]
-
-    # Termina después de crear el canal y no vuelve a iniciarse.
     restart: "no"
 
-  # RabbitMQ maneja tareas en espera, como procesar apuestas y enviar correos.
   rabbitmq:
-    # Construye una imagen propia que incluye el complemento de mensajes retrasados.
     build: ./infrastructure/rabbitmq
     image: grupo3/rabbitmq-delayed:3.12
     restart: unless-stopped
-
-    # Usuario y contraseña de RabbitMQ, tomados preferiblemente del archivo .env.
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-betting}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-betting_secret}
-
-    # 5672 es para mensajes y 15672 para la administración; ambos quedan dentro de Docker.
     expose: ["5672", "15672"]
     networks: [messaging]
-
-    # Comprueba que RabbitMQ pueda recibir conexiones.
     healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"], interval: 10s, timeout: 5s, retries: 15 }
     deploy:
       resources:
         limits: { cpus: "0.75", memory: 512M }
 
-  # PostgreSQL guarda usuarios, saldos, partidos, apuestas y recargas de forma permanente.
   postgres-db:
     image: postgres:16-alpine
     restart: unless-stopped
-
-    # Nombre de la base de datos y credenciales de acceso.
     environment:
       POSTGRES_DB: betting
       POSTGRES_USER: ${POSTGRES_USER:-betting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-betting_secret}
-
-    # Guarda los datos en un volumen para no perderlos al recrear el contenedor.
     volumes: [postgres_data:/var/lib/postgresql/data]
-
-    # El puerto queda disponible solamente para los servicios internos.
     expose: ["5432"]
     networks: [persistence]
-
-    # Confirma que la base de datos ya acepta conexiones.
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 8s, timeout: 5s, retries: 12 }
     deploy:
       resources:
         limits: { cpus: "0.75", memory: 512M }
 
-  # Procesa el resultado final de cada partido, resuelve apuestas y actualiza saldos.
   results-engine:
-    # Copia la configuración común definida al comienzo del archivo.
     <<: *app-common
-
-    # Construye este servicio usando su Dockerfile.
     build: { context: ., dockerfile: results-engine/Dockerfile }
-
-    # Necesita comunicarse tanto con los mensajes como con la base de datos.
     networks: [messaging, persistence]
-
-    # Datos necesarios para conectarse a PostgreSQL, además de la configuración común.
     environment:
       <<: *app-env
       DATABASE_URL: jdbc:postgresql://postgres-db:5432/betting
       POSTGRES_USER: ${POSTGRES_USER:-betting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-betting_secret}
-
-    # Solo inicia cuando Kafka, RabbitMQ y PostgreSQL están listos.
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       postgres-db: { condition: service_healthy }
 
-  # Simula el marcador y los cambios que ocurren durante cada partido.
   match-simulator:
     <<: *app-common
     build: { context: ., dockerfile: match-simulator/Dockerfile }
-
-    # Solo necesita la red de mensajes para publicar y recibir eventos.
     networks: [messaging]
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
 
-  # Entrega al panel web la información de los partidos en tiempo real.
   dashboard-backend:
     <<: *app-common
     build: { context: ., dockerfile: dashboard-backend/Dockerfile }
     networks: [messaging]
-
-    # Permite entrar al servicio desde el servidor usando el puerto 8080.
     ports: ["8080:8080"]
     depends_on: { rabbitmq: { condition: service_healthy } }
-
-    # Consulta una ruta interna para comprobar que el servicio esté funcionando.
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep UP"], interval: 10s, timeout: 4s, retries: 12 }
 
-  # API principal: maneja usuarios, inicio de sesión, apuestas, saldo y administración.
   betting-api:
     <<: *app-common
     build: { context: ., dockerfile: betting-api/Dockerfile }
     networks: [messaging, persistence]
-
-    # Conexión a la base de datos, clave de inicio de sesión y cuenta inicial del administrador.
     environment:
       <<: *app-env
       DATABASE_URL: jdbc:postgresql://postgres-db:5432/betting
@@ -198,26 +124,24 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-this-livebet-2026}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@livebet.co}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
-
-    # Publica la API en el puerto 8081 del servidor.
+      SIMULATED_PAYMENTS_ENABLED: ${SIMULATED_PAYMENTS_ENABLED:-false}
+      MERCADOPAGO_ENABLED: ${MERCADOPAGO_ENABLED:-false}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+      MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET:-}
+      MERCADOPAGO_SUCCESS_URL: ${MERCADOPAGO_SUCCESS_URL:-http://localhost:8080/?payment=success}
+      MERCADOPAGO_PENDING_URL: ${MERCADOPAGO_PENDING_URL:-http://localhost:8080/?payment=pending}
+      MERCADOPAGO_FAILURE_URL: ${MERCADOPAGO_FAILURE_URL:-http://localhost:8080/?payment=failure}
     ports: ["8081:8081"]
-
-    # Espera a que los sistemas que necesita estén disponibles.
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       postgres-db: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
-
-    # Comprueba que la API responda correctamente.
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep UP"], interval: 10s, timeout: 4s, retries: 12 }
 
-  # Recibe tareas de correo y envía recibos o resultados de apuestas a los usuarios.
   email-worker:
     <<: *app-common
     build: { context: ., dockerfile: email-worker/Dockerfile }
     networks: [messaging]
-
-    # Configuración del proveedor de correo. Las credenciales deben venir del archivo .env.
     environment:
       <<: *app-env
       MAIL_ENABLED: ${MAIL_ENABLED:-false}
@@ -227,43 +151,27 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-${MAIL_USERNAME:-}}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-LiveBet}
-
-    # Espera a RabbitMQ porque allí recibe los correos que debe enviar.
     depends_on: { rabbitmq: { condition: service_healthy } }
-
-    # Ejecuta dos copias para atender más correos sin bloquear el resto de la aplicación.
     deploy:
       replicas: 2
       resources:
         limits: { cpus: "0.35", memory: 256M }
         reservations: { memory: 96M }
 
-  # Crea partidos nuevos automáticamente para mantener actividad en la plataforma.
   match-generator:
     <<: *app-common
     build: { context: ., dockerfile: match-generator/Dockerfile }
     networks: [messaging]
-
-    # Define cuánto dura un partido y cada cuánto tiempo se crea uno nuevo.
     environment:
       <<: *app-env
       MATCH_DURATION_MS: ${MATCH_DURATION_MS:-60000}
       GENERATION_INTERVAL_MS: ${GENERATION_INTERVAL_MS:-10000}
-
-    # Empieza cuando los sistemas de mensajes están listos.
     depends_on:
       kafka-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
 
-# Redes privadas para separar los mensajes de los datos guardados.
 networks:
-  # Conecta Kafka, RabbitMQ y los servicios que intercambian eventos.
   messaging: { driver: bridge }
-
-  # Conecta PostgreSQL solamente con los servicios que necesitan guardar o consultar datos.
   persistence: { driver: bridge }
-
-# Espacios de almacenamiento permanente administrados por Docker.
 volumes:
-  # Conserva la información de PostgreSQL aunque el contenedor se elimine o se actualice.
   postgres_data:

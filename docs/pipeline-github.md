@@ -41,4 +41,6 @@ Si cambia una contraseña o configuración, actualice el secreto completo `PRODU
 
 Cada entrega queda en `/opt/livebet/releases/<commit>` y el enlace `/opt/livebet/current` señala la versión activa. `scripts/deploy-release.sh` valida el paquete, levanta los contenedores, comprueba dashboard y API y ejecuta la reversión automática si algo falla.
 
+Para habilitar pagos, el secreto `PRODUCTION_ENV` también debe contener las variables `MERCADOPAGO_*` descritas en [mercado-pago.md](mercado-pago.md). El pipeline verifica que el Access Token y la firma del webhook no hayan sido versionados.
+
 El historial y los saldos permanecen en los volúmenes de Docker; publicar una nueva versión no recrea esos datos.

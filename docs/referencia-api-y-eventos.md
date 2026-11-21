@@ -169,11 +169,40 @@ Estados:
 | `LOST` | Selección perdedora |
 | `REJECTED` | Llegó después del cierre y fue reembolsada |
 
-## 4. Recargas
+## 4. Recargas con Mercado Pago
 
-### `POST /api/recharges`
+### `POST /api/recharges/checkout`
 
-Acceso: autenticado.
+Acceso: autenticado. Crea una orden idempotente en Mercado Pago. El navegador debe redirigir a `checkoutUrl`; este endpoint todavía no modifica el saldo.
+
+```json
+{ "amount": 50000 }
+```
+
+Respuesta:
+
+```json
+{
+  "reference": "rcg-...",
+  "orderId": "ORD...",
+  "amount": 50000.00,
+  "status": "PENDING",
+  "checkoutUrl": "https://www.mercadopago.com.co/checkout/...",
+  "balance": 250000.00
+}
+```
+
+### `GET /api/recharges/checkout/{reference}`
+
+Acceso: autenticado. Solo permite consultar recargas pertenecientes al usuario del token. Estados: `CREATING`, `PENDING`, `APPROVED`, `REJECTED` y `ERROR`.
+
+### `POST /api/recharges/mercadopago/webhook`
+
+Acceso: público para Mercado Pago, pero protegido mediante `x-signature`, `x-request-id` y la firma secreta. El backend consulta nuevamente la orden a Mercado Pago, compara referencia, orden, monto y moneda, y solo acredita una transición `PENDING → APPROVED`. Las entregas repetidas no duplican saldo.
+
+### `POST /api/recharges` (solo desarrollo)
+
+La recarga simulada anterior está deshabilitada por defecto. Solo se habilita explícitamente con `SIMULATED_PAYMENTS_ENABLED=true`; nunca debe activarse en producción.
 
 ```json
 {

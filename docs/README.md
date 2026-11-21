@@ -7,6 +7,7 @@ Este directorio contiene la documentación técnica, funcional y operativa de **
 1. [Documentación técnica completa](documentacion-tecnica-completa.md): alcance, principios, componentes, flujos, consistencia, resiliencia y decisiones.
 2. [Catálogo de diagramas](diagramas.md): arquitectura, clases, datos, secuencias, despliegue, redes y CI/CD.
 3. [Referencia de API y contratos](referencia-api-y-eventos.md): endpoints HTTP, autenticación, validaciones, eventos Kafka y mensajes RabbitMQ.
+4. [Integración de Mercado Pago](mercado-pago.md): Checkout Pro, webhooks firmados, variables y pruebas.
 4. [Modelo de datos](modelo-de-datos.md): tablas, propiedad de datos, estados, relaciones e idempotencia.
 5. [Operación, despliegue y seguridad](operacion-despliegue-seguridad.md): ejecución local, AWS, pipeline, recuperación, observabilidad y riesgos.
 6. [Estrategia de pruebas y trazabilidad](pruebas-y-trazabilidad.md): matriz requisito-prueba, comandos, cobertura funcional y criterios de aceptación.

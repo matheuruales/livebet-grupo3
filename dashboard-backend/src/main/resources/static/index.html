@@ -57,20 +57,18 @@
     <div class="section-head"><div><span class="eyebrow"><i></i> PAGOS LIVEBET</span><h2>Recargar saldo</h2><p>Agrega fondos a tu cuenta de forma rápida y continúa disfrutando tus partidos favoritos.</p></div><div class="current-balance"><span>SALDO ACTUAL</span><b id="rechargeBalance">$0</b></div></div>
     <div class="recharge-grid">
       <div class="payment-card-wrap">
-        <div class="credit-card"><div class="card-top"><span class="card-chip"></span><b>LIVEBET</b></div><div id="cardPreviewNumber" class="card-number">•••• •••• •••• ••••</div><div class="card-bottom"><div><small>TITULAR</small><b id="cardPreviewName">TU NOMBRE</b></div><div><small>VENCE</small><b id="cardPreviewExpiry">MM/AA</b></div></div></div>
-        <div class="demo-notice"><b>Confirmación inmediata</b><p>Al completar la recarga recibirás un recibo detallado en el correo de tu cuenta.</p></div>
+        <div class="mercadopago-card"><span class="mp-mark">MP</span><div><small>PAGO SEGURO</small><h3>Mercado Pago</h3><p>Completa el pago en el sitio oficial. LiveBet nunca recibe ni almacena los datos de tu tarjeta.</p></div></div>
+        <div class="demo-notice"><b>Saldo protegido</b><p>El saldo se acredita únicamente cuando Mercado Pago confirma el pago. Luego recibirás el comprobante en tu correo.</p></div>
       </div>
       <div class="panel-card recharge-form-card">
         <form id="rechargeForm" class="form">
           <div class="field"><label for="rechargeAmount">Monto de la recarga</label><div class="money-input"><span>$</span><input id="rechargeAmount" type="number" min="5000" max="2000000" step="1000" value="50000" required></div></div>
           <div class="quick-amounts recharge-amounts"><button type="button" data-recharge-amount="20000">$20K</button><button class="active" type="button" data-recharge-amount="50000">$50K</button><button type="button" data-recharge-amount="100000">$100K</button><button type="button" data-recharge-amount="250000">$250K</button></div>
-          <div class="field"><label for="cardholder">Nombre del titular</label><input id="cardholder" autocomplete="cc-name" maxlength="80" placeholder="Como aparece en la tarjeta" required></div>
-          <div class="field"><label for="cardNumber">Número de tarjeta</label><input id="cardNumber" inputmode="numeric" autocomplete="cc-number" minlength="19" maxlength="19" placeholder="0000 0000 0000 0000" required></div>
-          <div class="card-fields"><div class="field"><label for="cardExpiry">Vencimiento</label><input id="cardExpiry" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/AA" required></div><div class="field"><label for="cardCvv">CVV</label><input id="cardCvv" type="password" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123" required></div></div>
-          <p class="payment-security">🔒 Tus datos están protegidos y no almacenamos el número completo de tu tarjeta.</p>
-          <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Pagar y recargar →</button>
+          <div class="checkout-summary"><span>Vas a recargar</span><b id="checkoutAmount">$50.000</b><small>Mercado Pago te mostrará los medios de pago disponibles.</small></div>
+          <p class="payment-security">🔒 La acreditación se valida directamente con Mercado Pago y no depende de la pantalla de regreso.</p>
+          <p id="rechargeError" class="form-error"></p><button id="rechargeSubmit" class="btn btn-orange pay-button" type="submit">Continuar con Mercado Pago →</button>
         </form>
-        <div id="rechargeSuccess" class="recharge-success hidden"><span>✓</span><h3>¡Recarga aprobada!</h3><p id="rechargeSuccessText"></p><button class="btn btn-blue" data-view="matches">Volver a los partidos</button></div>
+        <div id="rechargeSuccess" class="recharge-success hidden"><span id="rechargeResultIcon">✓</span><h3 id="rechargeResultTitle">¡Recarga aprobada!</h3><p id="rechargeSuccessText"></p><button class="btn btn-blue" data-view="matches">Volver a los partidos</button></div>
       </div>
     </div>
   </section>

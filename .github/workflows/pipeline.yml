@@ -38,7 +38,7 @@ jobs:
       - name: Comprobar que no se versionaron secretos
         run: |
           test ! -f .env
-          ! git grep -nE '(MAIL_PASSWORD|AWS_SECRET_ACCESS_KEY)=[^$<{]' -- \
+          ! git grep -nE '(MAIL_PASSWORD|AWS_SECRET_ACCESS_KEY|MERCADOPAGO_ACCESS_TOKEN|MERCADOPAGO_WEBHOOK_SECRET)=[^$<{]' -- \
             ':!.env.example' ':!README.md' ':!docs/**' ':!.github/workflows/pipeline.yml'
 
   package:

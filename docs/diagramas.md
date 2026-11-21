@@ -318,16 +318,24 @@ sequenceDiagram
     autonumber
     participant U as Usuario
     participant API as betting-api
+    participant MP as Mercado Pago
     participant P as PostgreSQL
     participant R as RabbitMQ
     participant W as email-worker
     participant M as Google SMTP
 
-    U->>API: POST /api/recharges
-    API->>API: validar monto y formato de tarjeta
-    API->>P: crédito + recharge_transaction
+    U->>API: POST /api/recharges/checkout
+    API->>P: payment_recharge CREATING + idempotency key
+    API->>MP: POST /v1/orders
+    MP-->>API: orderId + checkoutUrl
+    API-->>U: redirigir a Checkout Pro
+    U->>MP: completar pago
+    MP->>API: webhook order firmado
+    API->>API: validar HMAC
+    API->>MP: GET /v1/orders/{id}
+    MP-->>API: processed / accredited
+    API->>P: bloqueo + crédito + APPROVED
     API->>R: notify.email.recharge
-    API-->>U: recibo, últimos 4 y saldo
     R->>W: notificación de recarga
     W->>M: correo HTML + texto
 ```

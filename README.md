@@ -84,7 +84,7 @@ Las credenciales de desarrollo se encuentran en `.env`. Cambie todos los secreto
 
 Desde el dashboard, cree una cuenta, seleccione cualquiera de los dos equipos de un partido abierto, elija el monto y confirme. Cada cuenta nueva recibe 250.000 COP de saldo demo.
 
-El panel **Recargar saldo** incluye una simulación de pago. Acepta cualquier número ficticio de exactamente 16 cifras, una fecha con formato `MM/AA` y un código de seguridad de tres o cuatro cifras. La aplicación registra únicamente los últimos cuatro dígitos y abona el monto al saldo; no use datos bancarios reales.
+El panel **Recargar saldo** usa Checkout Pro de Mercado Pago. LiveBet crea una orden en el servidor y redirige al usuario al sitio oficial de Mercado Pago; el saldo se acredita únicamente después de validar la firma del webhook y consultar la orden aprobada. Consulte la [guía de configuración](docs/mercado-pago.md). La recarga simulada anterior permanece en el código solo para desarrollo y está deshabilitada por defecto.
 
 La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PASSWORD`; nunca conserve las credenciales de ejemplo en un despliegue público.
 
@@ -97,7 +97,9 @@ La cuenta administrativa inicial se configura mediante `ADMIN_EMAIL` y `ADMIN_PA
 | `GET` | `/api/auth/me` | Token | Perfil y saldo actual |
 | `POST` | `/api/bets` o `/bet` | Token | Registrar una apuesta |
 | `GET` | `/api/bets` | Token | Historial personal |
-| `POST` | `/api/recharges` | Token | Simular un pago y recargar saldo |
+| `GET` | `/api/recharges/payment-config` | Token | Consultar si Mercado Pago está habilitado |
+| `POST` | `/api/recharges/checkout` | Token | Crear la orden y obtener el enlace de pago |
+| `GET` | `/api/recharges/checkout/{reference}` | Token | Consultar el estado de una recarga |
 | `GET` | `/api/admin/users` | ADMIN | Consultar usuarios |
 | `PATCH` | `/api/admin/users/{id}/balance` | ADMIN | Recargar saldo |
 | `PATCH` | `/api/admin/users/{id}/role` | ADMIN | Cambiar rol |

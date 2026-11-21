@@ -27,3 +27,11 @@ livebet:
   initial-balance: 250000
   admin-email: ${ADMIN_EMAIL:admin@livebet.co}
   admin-password: ${ADMIN_PASSWORD:Admin123!}
+  simulated-payments-enabled: ${SIMULATED_PAYMENTS_ENABLED:false}
+  mercado-pago:
+    enabled: ${MERCADOPAGO_ENABLED:false}
+    access-token: ${MERCADOPAGO_ACCESS_TOKEN:}
+    webhook-secret: ${MERCADOPAGO_WEBHOOK_SECRET:}
+    success-url: ${MERCADOPAGO_SUCCESS_URL:http://localhost:8080/?payment=success}
+    pending-url: ${MERCADOPAGO_PENDING_URL:http://localhost:8080/?payment=pending}
+    failure-url: ${MERCADOPAGO_FAILURE_URL:http://localhost:8080/?payment=failure}

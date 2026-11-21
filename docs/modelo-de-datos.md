@@ -157,7 +157,23 @@ Esta tabla permite recuperar eventos de partidos inconclusos y distingue primera
 
 Por diseño no existen columnas para PAN completo, fecha o CVV.
 
-### 4.8 `roulette_rounds`
+### 4.8 `payment_recharges`
+
+Registro de Checkout Pro. Esta tabla es la fuente local para acreditar pagos reales sin duplicarlos.
+
+| Columna | Uso |
+|---|---|
+| `reference` | PK y `external_reference` enviada a Mercado Pago |
+| `user_id` | Cuenta que recibirá el saldo |
+| `amount` | Monto esperado en COP |
+| `idempotency_key` | Clave única para crear la order |
+| `provider_order_id` | ID único devuelto por Mercado Pago |
+| `checkout_url` | Redirección al Checkout Pro |
+| `status` | `CREATING`, `PENDING`, `APPROVED`, `REJECTED` o `ERROR` |
+| `created_at` / `processed_at` | Trazabilidad temporal |
+| `version` | Bloqueo optimista adicional |
+
+### 4.9 `roulette_rounds`
 
 | Columna | Uso |
 |---|---|
@@ -169,7 +185,7 @@ Por diseño no existen columnas para PAN completo, fecha o CVV.
 | `next_round_at` | Inicio de siguiente ronda |
 | `result_number` | Número europeo 0–36 |
 
-### 4.9 `roulette_bets`
+### 4.10 `roulette_bets`
 
 | Columna | Uso |
 |---|---|
