@@ -1,6 +1,10 @@
 server.port: 8080
 spring:
   application.name: dashboard-backend
+  web.resources.cache.cachecontrol:
+    no-store: true
+    no-cache: true
+    must-revalidate: true
   rabbitmq:
     host: ${RABBITMQ_HOST:rabbitmq}
     username: ${RABBITMQ_USER:betting}
