@@ -1,0 +1,8 @@
+{$LIVEBET_DOMAIN:livebet.18.224.52.92.nip.io} {
+  encode zstd gzip
+
+  @betting_api path /api/auth* /api/bets* /api/recharges* /api/roulette* /api/admin*
+  reverse_proxy @betting_api betting-api:8081
+
+  reverse_proxy dashboard-backend:8080
+}

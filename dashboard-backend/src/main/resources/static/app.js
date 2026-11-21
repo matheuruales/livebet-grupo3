@@ -1,4 +1,4 @@
-const API=`${location.protocol}//${location.hostname}:8081/api`,matches=new Map();
+const API=location.protocol==='https:'?`${location.origin}/api`:`${location.protocol}//${location.hostname}:8081/api`,matches=new Map();
 const money=new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0});
 let token=localStorage.getItem('livebet_token'),user=JSON.parse(localStorage.getItem('livebet_user')||'null'),authMode='login',selectedMatch=null,currentView='matches';
 let rouletteState=null,rouletteSelection=null,rouletteChip=5000,rouletteClockOffset=0,settledRouletteRound=null;

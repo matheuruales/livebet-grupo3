@@ -13,6 +13,21 @@ x-app-common: &app-common
       reservations: { memory: 128M }
 
 services:
+  edge-proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      LIVEBET_DOMAIN: ${LIVEBET_DOMAIN:-livebet.18.224.52.92.nip.io}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [messaging]
+    depends_on:
+      dashboard-backend: { condition: service_healthy }
+      betting-api: { condition: service_healthy }
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.1
     restart: unless-stopped
@@ -175,3 +190,5 @@ networks:
   persistence: { driver: bridge }
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
