@@ -8,3 +8,7 @@
 # Materiales de estudio generados localmente; no forman parte del código ni de la documentación del proyecto.
 output/pdf/Guia_Estudio_LiveBet_4_Integrantes.pdf
 scripts/generate_livebet_study_guide.py
+
+# Material temporal y guías generadas para estudio o revisión visual.
+tmp/
+output/pdf/
