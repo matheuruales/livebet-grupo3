@@ -15,7 +15,7 @@ VPC_ID="$(aws ec2 describe-vpcs --region "$REGION" --filters Name=is-default,Val
 SUBNET_ID="$(aws ec2 describe-subnets --region "$REGION" --filters Name=vpc-id,Values="$VPC_ID" --query 'Subnets[0].SubnetId' --output text)"
 SG_ID="$(aws ec2 describe-security-groups --region "$REGION" --filters Name=vpc-id,Values="$VPC_ID" Name=group-name,Values="${NAME}-sg" --query 'SecurityGroups[0].GroupId' --output text)"
 if [[ "$SG_ID" == "None" ]]; then
-  SG_ID="$(aws ec2 create-security-group --region "$REGION" --vpc-id "$VPC_ID" --group-name "${NAME}-sg" --description 'HTTPS público de LiveBet desarrollo' --query GroupId --output text)"
+  SG_ID="$(aws ec2 create-security-group --region "$REGION" --vpc-id "$VPC_ID" --group-name "${NAME}-sg" --description 'HTTPS public access for LiveBet development' --query GroupId --output text)"
 fi
 aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG_ID" --ip-permissions \
   'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0,Description="HTTP redirect"}]' \
