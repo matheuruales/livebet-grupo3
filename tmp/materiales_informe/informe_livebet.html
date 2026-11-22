@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe técnico integrador — LiveBet</title>
+<style>
+@page { size: A4; margin: 2.1cm 2.2cm; }
+body { font-family: Arial, sans-serif; color:#202126; font-size:11pt; line-height:1.48; background:#fffdf7; }
+.cover { page-break-after: always; text-align:center; padding-top:80px; }
+.cover .univ { font-size:12pt; letter-spacing:1.4px; font-weight:700; }
+.cover .label { margin-top:55px; color:#146078; font-weight:700; font-size:16pt; }
+.cover h1 { color:#f05d23; font-family:Georgia,serif; font-size:34pt; margin:28px 0 8px; }
+.cover .sub { font-family:Georgia,serif; font-size:18pt; margin-bottom:45px; }
+.cover .courses { line-height:1.7; }
+.cover .team { margin-top:45px; line-height:1.65; }
+h1 { font-family:Georgia,serif; color:#ef5a24; font-size:19pt; margin:24px 0 9px; page-break-after:avoid; }
+h2 { font-family:Georgia,serif; color:#12647d; font-size:14pt; margin:18px 0 7px; page-break-after:avoid; }
+h3 { font-family:Georgia,serif; font-size:12pt; margin:14px 0 5px; }
+p { text-align:justify; margin:0 0 9px; }
+ul,ol { margin:4px 0 12px 22px; }
+li { margin:0 0 5px; }
+.lead { font-family:Georgia,serif; font-size:13pt; color:#414247; line-height:1.5; }
+.note { border-left:5px solid #55c3e7; background:#eef9fc; padding:11px 14px; margin:14px 0; }
+.flow { font-family:'Courier New',monospace; background:#1f2127; color:#fff; padding:14px; line-height:1.6; border-radius:8px; }
+.small { font-size:9.5pt; color:#555; }
+.page { page-break-before:always; }
+</style>
+</head>
+<body>
+<section class="cover">
+  <div class="univ">UNIVERSIDAD COOPERATIVA DE COLOMBIA</div>
+  <div class="label">INFORME TÉCNICO INTEGRADOR</div>
+  <h1>LIVEBET</h1>
+  <div class="sub">Plataforma distribuida de apuestas en vivo</div>
+  <div class="courses">Programación Orientada a Objetos<br>Sistemas Distribuidos<br>Sistemas Operativos</div>
+  <div class="team"><b>Grupo 3 · Sexto B</b><br><br>Luis Castillo<br>Bayron Jaramillo<br>Matheu Ruales<br>Carlos Burbano</div>
+  <p style="text-align:center;margin-top:55px">Cúcuta, Colombia<br>20 de noviembre de 2026</p>
+</section>
+
+<h1>LiveBet: diseño, construcción y despliegue</h1>
+<p class="lead">Este informe explica el proyecto desde el código que se ejecuta, no desde una lista aislada de tecnologías. Cada decisión se relaciona con los contenidos estudiados en Programación Orientada a Objetos, Sistemas Distribuidos y Sistemas Operativos.</p>
+
+<h1>Resumen</h1>
+<p>LiveBet es una plataforma académica de apuestas deportivas en vivo que integra una aplicación web, seis servicios de negocio, dos intermediarios de mensajería y una base de datos relacional. El sistema crea partidos, permite apostar con un saldo simulado, programa el cierre de cada encuentro, genera un resultado, liquida las apuestas y comunica el desenlace por la interfaz y por correo. El propósito no fue imitar a escala comercial una casa de apuestas, sino resolver de forma coherente un problema donde varias acciones ocurren al mismo tiempo y no pueden depender de un único proceso.</p>
+<p>La solución se desarrolló con Java 17 y Spring Boot 3.3.5. La lógica se organizó alrededor de un modelo de dominio rico: <i>MatchAggregate</i> contiene las reglas del partido; los estados controlan qué operaciones son válidas; y una estrategia independiente calcula los premios. Kafka conserva el historial ordenado de eventos. RabbitMQ programa trabajos diferidos y distribuye notificaciones. PostgreSQL mantiene saldo, apuestas y auditoría. Docker Compose reúne la infraestructura y los servicios, mientras una instancia EC2 con Ubuntu ejecuta el despliegue de entrega.</p>
+<p>El resultado es un sistema funcional con registro, autenticación, roles, apuestas deportivas, ruleta compartida, recargas simuladas, historial personal y correos de resultado. La evaluación también identifica límites: el despliegue usa una sola máquina, el acceso público todavía es HTTP, los brokers no están replicados y las pruebas de integración pueden crecer. Reconocerlos permite valorar el proyecto con precisión, sin presentar como resuelto lo que corresponde a una evolución futura.</p>
+<p><b>Palabras clave:</b> arquitectura orientada a eventos, modelo de dominio rico, Kafka, RabbitMQ, PostgreSQL, Docker, Amazon EC2, idempotencia.</p>
+
+<h1>1. Introducción</h1>
+<p>Una apuesta parece sencilla desde la pantalla: el usuario elige un equipo, indica un monto y espera. Por debajo, el sistema debe coordinar tiempo, dinero, concurrencia y comunicación. Una apuesta enviada justo cuando termina el partido no puede aceptarse de forma arbitraria; un mensaje repetido no debe pagar dos veces; una caída temporal del correo no debe borrar la notificación; y un reinicio no puede dejar el saldo separado del registro de la apuesta.</p>
+<p>LiveBet nació a partir de ese problema. La aplicación debía generar partidos aleatorios, registrar apuestas mientras estuvieran abiertos, cerrarlos automáticamente y mostrar el resultado en tiempo real. Durante el desarrollo se añadieron funciones de uso cotidiano —cuentas, roles, saldo, recargas, historial, ruleta y correos— sin abandonar las condiciones técnicas del ejercicio. Esto obligó a distinguir entre la experiencia visible y la infraestructura que sostiene el proceso.</p>
+<p>El proyecto sirve como punto de encuentro para las tres asignaturas. Programación Orientada a Objetos aporta el diseño de las reglas y la separación de responsabilidades. Sistemas Distribuidos explica la comunicación por eventos, la consistencia, los reintentos y el comportamiento ante fallos. Sistemas Operativos permite comprender qué ocurre al ejecutar varios contenedores sobre Linux y cómo se administran procesos, memoria, archivos, redes y entrada/salida.</p>
+
+<h1>2. Problema, objetivos y alcance</h1>
+<p>La dificultad central consiste en mantener una historia coherente del partido cuando la información se produce en lugares distintos. El generador conoce el instante de apertura; la API conoce al usuario y su saldo; el simulador decide el marcador; el motor de resultados reúne los eventos; el dashboard muestra el cambio; y el trabajador de correo informa al apostador. Si todos dependieran de llamadas directas encadenadas, la caída de uno bloquearía a los demás y sería difícil repetir un paso sin repetir sus efectos.</p>
+<h2>2.1 Objetivo general</h2>
+<p>Diseñar, implementar y desplegar una plataforma distribuida que gestione usuarios, partidos, apuestas y resultados mediante un dominio orientado a objetos, comunicación asíncrona y contenedores ejecutados en una instancia de nube.</p>
+<h2>2.2 Objetivos específicos</h2>
+<ul>
+  <li>Modelar las reglas del partido, el dinero y la liquidación sin depender de frameworks ni brokers.</li>
+  <li>Separar generación, recepción de apuestas, simulación, liquidación y presentación en componentes con responsabilidades identificables.</li>
+  <li>Conservar el orden de los eventos de un partido y evitar que un evento repetido produzca pagos duplicados.</li>
+  <li>Programar cierres y distribuir notificaciones con colas, reintentos y mensajes fallidos.</li>
+  <li>Empaquetar la solución con Docker Compose, verificarla y desplegarla en Amazon EC2.</li>
+</ul>
+<h2>2.3 Alcance</h2>
+<p>El alcance es un prototipo académico completo, no una plataforma de dinero real. Las recargas y los saldos son simulados. La aplicación acepta datos ficticios de tarjeta y conserva solamente una referencia y los últimos cuatro dígitos; no existe integración financiera ni cumplimiento PCI DSS. Esta decisión mantiene el trabajo dentro del objetivo pedagógico y evita tratar información bancaria real.</p>
+<p>El desarrollo fue incremental. Primero se resolvió el flujo de partidos y apuestas; después se enriqueció el dominio, se incorporó persistencia, autenticación y roles, y finalmente se añadieron ruleta, recargas y correos. La entrega se valida mediante la suite Maven, la configuración Docker y pruebas funcionales sobre EC2.</p>
+
+<h1>3. Recorrido funcional y arquitectura</h1>
+<p>El recorrido comienza en <i>match-generator</i>. El servicio crea un identificador, selecciona dos equipos y publica <b>MATCH_CREATED</b> en el tópico <i>match_events</i>. Al mismo tiempo entrega a RabbitMQ un comando con retraso. El retraso representa la duración del encuentro y evita que el generador permanezca bloqueado esperando.</p>
+<p>Cuando una persona apuesta, <i>betting-api</i> autentica el token, valida la solicitud y descuenta el monto. En la misma transacción guarda la petición y un evento pendiente en la tabla de outbox. Un proceso posterior publica <b>BET_PLACED</b> en Kafka. Cuando vence el retraso, <i>match-simulator</i> consume el comando, produce un marcador válido y publica <b>MATCH_FINISHED</b>. <i>results-engine</i> lee los tres tipos de evento, reconstruye el partido, determina ganadores y perdedores y persiste la auditoría. Finalmente envía notificaciones a RabbitMQ: <i>dashboard-backend</i> las transmite por WebSocket y <i>email-worker</i> prepara el correo.</p>
+<div class="flow">match-generator → Kafka → results-engine → PostgreSQL<br>match-generator → RabbitMQ (delay) → match-simulator → Kafka<br>results-engine → RabbitMQ → dashboard-backend / email-worker</div>
+<p>La ruleta mantiene una ronda compartida, restringe apuestas al periodo habilitado y liquida de acuerdo con el número final. La recarga actualiza el saldo mediante una transacción y emite un comprobante. “Mis apuestas” reúne eventos deportivos y jugadas de ruleta para que la actividad no quede fragmentada.</p>
+<h2>3.1 Responsabilidades desplegables</h2>
+<ul>
+  <li><b>match-generator:</b> crea partidos y programa su cierre.</li>
+  <li><b>betting-api:</b> administra autenticación, usuarios, saldo, apuestas, recargas y ruleta.</li>
+  <li><b>match-simulator:</b> recibe el temporizador y genera el marcador.</li>
+  <li><b>results-engine:</b> reconstruye estado, aplica reglas, liquida y audita.</li>
+  <li><b>dashboard-backend:</b> sirve la interfaz y transmite cambios por WebSocket.</li>
+  <li><b>email-worker:</b> consume notificaciones y envía correos HTML; funciona con dos réplicas competitivas.</li>
+</ul>
+<p><i>domain</i> y <i>shared-contracts</i> son módulos compartidos de código, no contenedores independientes.</p>
+
+<h1>4. Programación Orientada a Objetos</h1>
+<h2>4.1 Modelo de dominio rico</h2>
+<p>La clase más representativa es <i>MatchAggregate</i>. No es una bolsa de atributos con setters; representa un partido y decide qué puede ocurrir. Sus operaciones registran apuestas, cierran el encuentro y producen liquidaciones. El estado interno no puede modificarse desde un controlador para saltarse las reglas. Esa unión de datos y comportamiento constituye un modelo de dominio rico.</p>
+<p>La diferencia se aprecia ante una apuesta tardía. <i>BetService</i> coordina la solicitud, pero no decide si el partido todavía acepta apuestas. Esa regla pertenece al agregado y a su estado. Por tanto, seguirá siendo válida si mañana la entrada proviene de otra API o de una aplicación móvil.</p>
+<h2>4.2 State, Strategy y objetos de valor</h2>
+<p><i>MatchState</i> define operaciones según el momento del partido. <i>OpenForBetsState</i> permite apostar y cerrar. <i>ClosedState</i> impide nuevas apuestas y permite liquidar. <i>SettledState</i> es terminal. En vez de repetir condiciones en muchas clases, cada estado conoce sus transiciones. <i>BettingClosedException</i> e <i>InvalidMatchTransitionException</i> vuelven explícita una violación.</p>
+<p><i>PayoutStrategy</i> define el cálculo del premio y <i>FixedOddsPayoutStrategy</i> implementa la cuota fija. El agregado solicita el cálculo a una interfaz sin conocer la fórmula. Otra política puede incorporarse sin modificar las transiciones del partido, aplicación directa del principio abierto/cerrado.</p>
+<p><i>Money</i>, <i>MatchId</i>, <i>BetId</i> y <i>UserId</i> son records inmutables. <i>Money</i> rechaza cantidades negativas y usa <i>BigDecimal</i> para evitar los errores de <i>double</i>. Un dato inválido no viaja por varias capas: el objeto se niega a existir desde el inicio.</p>
+<h2>4.3 SOLID, puertos y adaptadores</h2>
+<p>La inversión de dependencias se observa en los puertos. <i>BetEventOutboxPort</i> separa el caso de uso de JPA; <i>MatchEventPort</i> y <i>MatchTimerPort</i> separan el generador de Kafka y RabbitMQ; <i>FinishedEventPort</i> separa el simulador de Kafka; y <i>NotificationPort</i> desacopla el motor de RabbitMQ. Las clases centrales dependen de contratos pequeños; los adaptadores conectan la tecnología concreta.</p>
+<p>La responsabilidad única también aparece en el motor. <i>EventProcessor</i> clasifica contratos; <i>MatchCreatedHandler</i>, <i>BetPlacedHandler</i> y <i>MatchFinishedHandler</i> atienden casos diferentes; <i>MatchRegistry</i> conserva la réplica en memoria; y los repositorios persisten. El criterio no fue imponer un número de líneas, sino mantener un motivo principal de cambio por clase.</p>
+<h2>4.4 DTO, servicio y agregado</h2>
+<p><i>LoginRequest</i>, <i>RegisterRequest</i>, <i>RechargeRequest</i> y <i>RouletteBetRequest</i> transportan y validan datos externos. <i>BetService</i> es un servicio de aplicación que coordina cuenta, repositorios y outbox dentro de una transacción. <i>MatchAggregate</i> pertenece al dominio y protege invariantes. Una solicitud pasa por <i>BearerTokenFilter</i>, un controlador con <i>@Valid</i>, el servicio y finalmente el dominio o repositorio. <i>ApiExceptionHandler</i> convierte errores conocidos en respuestas HTTP comprensibles.</p>
+
+<h1>5. Sistemas Distribuidos</h1>
+<h2>5.1 Kafka: historia ordenada</h2>
+<p>Kafka conserva <b>MATCH_CREATED</b>, <b>BET_PLACED</b> y <b>MATCH_FINISHED</b>. Todos usan <i>matchId</i> como clave. Kafka calcula la partición a partir de esa clave, por lo que los eventos del mismo partido mantienen su orden aunque el tópico tenga tres particiones. La retención configurada es de siete días.</p>
+<p>El consumidor no borra el evento al leerlo. Cada grupo mantiene su posición y el log permanece disponible durante la retención. <i>results-engine</i> puede leer desde <i>earliest</i> y reconstruir agregados después de un reinicio. Reproducir la historia debe reconstruir estado, no volver a pagar; de ahí la importancia de la idempotencia.</p>
+<h2>5.2 RabbitMQ: trabajo, retraso y enrutamiento</h2>
+<p>RabbitMQ resuelve tareas que no necesitan ser un historial largo. El exchange <i>match.delayed</i> recibe un comando con la routing key <i>match.simulate</i> y lo entrega a <i>match_simulation_queue</i> cuando vence el retraso. Si falla repetidamente, el mensaje pasa por un dead-letter exchange a <i>match_simulation_dlq</i>. Para notificaciones se usa un topic exchange que dirige mensajes al dashboard o al correo.</p>
+<p>Un exchange no almacena mensajes como una carpeta. Recibe, examina routing key y bindings, y decide la cola. La cola retiene el trabajo hasta la confirmación. AMQP define publicar, enrutar y confirmar; TCP transporta los bytes de forma fiable y ordenada. Por eso AMQP normalmente funciona sobre TCP: el protocolo de mensajería necesita una conexión de transporte.</p>
+<div class="note"><b>Kafka y RabbitMQ no son redundantes.</b> Kafka responde “¿qué ocurrió y en qué orden?”. RabbitMQ responde “¿qué trabajo debe ejecutarse y qué consumidor puede tomarlo?”.</div>
+<h2>5.3 HTTP, HTTPS y WebSocket</h2>
+<p>HTTP se usa para registrar, iniciar sesión, consultar perfiles y ejecutar operaciones. En la entrega pública se utilizó HTTP sin cifrado; HTTPS añadiría TLS y es obligatorio antes de un entorno real. WebSocket mantiene un canal abierto entre dashboard-backend y navegador. Tras el saludo inicial, el servidor empuja el cambio sin consultas repetidas. Una lectura HTTP de estado permite recuperar la vista tras una recarga.</p>
+<h2>5.4 CAP, PACELC y consistencia</h2>
+<p>La aplicación no se resume honestamente con una sola etiqueta CAP. Dentro de <i>betting-api</i>, PostgreSQL prioriza consistencia: débito, apuesta y outbox se confirman o revierten juntos. Entre servicios hay consistencia eventual: el evento tarda un momento en aparecer en el motor y luego en el dashboard. Ante una partición, algunos componentes conservan trabajo para procesarlo al recuperar conexión.</p>
+<p>PACELC añade la decisión en funcionamiento normal: aun sin partición, ¿menor latencia o mayor consistencia? LiveBet acepta una pequeña demora distribuida para no hacer depender la transacción del usuario de todos los consumidores. La confirmación local es consistente; la propagación es asíncrona. No se afirma alta disponibilidad global: Kafka, RabbitMQ y PostgreSQL son instancias únicas en una sola EC2.</p>
+
+<h1>6. Confiabilidad y tolerancia a fallos</h1>
+<h2>6.1 Transactional Outbox</h2>
+<p>Si la API descontara saldo y fallara antes de publicar <b>BET_PLACED</b>, la base mostraría una apuesta desconocida por el motor. El patrón Transactional Outbox evita esa ventana: saldo, solicitud y evento pendiente se escriben en una transacción. <i>BetOutboxDispatcher</i> publica y marca el registro. Si Kafka no está disponible, el evento permanece en PostgreSQL.</p>
+<h2>6.2 Idempotencia y entrega</h2>
+<p>El sistema trabaja con entrega al menos una vez, no con una promesa global de <i>exactly-once</i>. Cada contrato incluye <i>eventId</i> y los consumidores registran cuáles procesaron. <i>SettlementService</i> protege estados terminales y la liquidación bloquea la apuesta antes de acreditar. La expresión correcta es “efecto único mediante idempotencia”.</p>
+<h2>6.3 Reintentos, DLQ y recuperación</h2>
+<p>RabbitMQ conserva trabajos no confirmados y usa colas de mensajes fallidos. Si el correo falla, el mensaje se reintenta y finalmente pasa a <i>email_notifications_dlq</i>. <i>SettlementReconciler</i> y <i>OverdueMatchReconciler</i> buscan estados que debieron avanzar. Al reiniciar, el motor reproduce Kafka y reconstruye <i>MatchRegistry</i>; los eventos auditados no repiten movimientos ni correos.</p>
+<p>El material de clase estudia heartbeat, Bully y Raft para detectar fallos y acordar liderazgo. LiveBet no implementa consenso propio. Existe recuperación ante fallos temporales de procesos y comunicación, pero no tolerancia a la pérdida completa de EC2. Un sistema de producción necesitaría réplicas en varias zonas.</p>
+
+<h1>7. Sistemas Operativos y contenedores</h1>
+<h2>7.1 Procesos aislados</h2>
+<p>Docker no crea una máquina virtual completa por servicio. Cada contenedor ejecuta procesos Linux aislados mediante namespaces y comparte el kernel de Ubuntu. Los cgroups limitan CPU y memoria; el sistema de archivos por capas aporta imágenes reproducibles; y la red virtual asigna nombres y direcciones internas. Por eso once contenedores consumen menos que once sistemas operativos invitados.</p>
+<h2>7.2 Procesos y memoria</h2>
+<p>Para Linux, las aplicaciones Java, PostgreSQL, Kafka y RabbitMQ son procesos e hilos planificados por el kernel. Compose declara health checks y reinicios. Si un email-worker termina, puede volver sin reiniciar el motor. Las dos réplicas compiten por la cola y RabbitMQ entrega cada mensaje a una de ellas.</p>
+<p>Cada proceso usa direcciones virtuales que la MMU traduce a páginas físicas. La JVM administra su heap y Linux decide qué páginas permanecen en RAM. Si los contenedores superan la memoria disponible, el host puede usar swap o terminar procesos; por eso los límites y la observación de salud importan.</p>
+<h2>7.3 Archivos, volúmenes y entrada/salida</h2>
+<p>La capa escribible de un contenedor es desechable. PostgreSQL guarda su información en <i>postgres_data</i>, volumen que sobrevive a la recreación. <i>docker compose down -v</i> elimina ese historial. Los Dockerfile multietapa separan compilación y ejecución, reducen la imagen y ejecutan con un usuario no root.</p>
+<p>HTTP, WebSocket, TCP de Kafka, AMQP, escrituras de PostgreSQL y SMTP son operaciones de entrada/salida. Mientras un hilo espera red o disco, el planificador puede ejecutar otro. El compose separa dos redes: <i>messaging</i> para Kafka/RabbitMQ y <i>persistence</i> para PostgreSQL. Solo dashboard y API publican puertos hacia el host.</p>
+
+<h1>8. Persistencia, seguridad y datos</h1>
+<p>PostgreSQL conserva usuarios, saldos, solicitudes, outbox, auditoría, rondas de ruleta y recargas. Kafka mantiene el orden temporal durante la retención; PostgreSQL conserva la vista consolidada y contable. Esta duplicación es intencional: el log permite reconstruir y la base relacional permite transacciones y consultas. Outbox e idempotencia enlazan ambos mundos.</p>
+<p>Las contraseñas usan BCrypt con costo 12. Las sesiones se firman con HMAC-SHA256 por doce horas. Las rutas administrativas exigen ADMIN en el backend. Los DTO restringen formatos y valores; los errores no exponen trazas internas; los contenedores funcionan sin root; y las credenciales se inyectan por entorno. Gmail usa SMTP autenticado con STARTTLS.</p>
+<p>No se almacena el número completo de tarjeta ni el código de seguridad. Aun así, la entrega no está endurecida por completo: falta HTTPS, rotación formal de secretos, CORS restringido, rate limiting, monitoreo centralizado, copias automáticas y alta disponibilidad. Las prácticas de hardening vistas en clase —reducir servicios, actualizar, proteger SSH, usar firewall, fail2ban, auditoría y respuesta a incidentes— son trabajo futuro.</p>
+
+<h1>9. Docker Compose y AWS</h1>
+<p><i>docker-compose.yml</i> define PostgreSQL, ZooKeeper, Kafka, una tarea <i>kafka-init</i>, RabbitMQ y seis aplicaciones. <i>kafka-init</i> termina tras preparar el tópico; con dos réplicas de correo pueden crearse doce contenedores, pero once quedan ejecutándose de forma estable. ZooKeeper coordina la versión de Kafka utilizada; migrar a KRaft permitiría eliminar esa dependencia.</p>
+<p>La composición declara <i>messaging</i> y <i>persistence</i>, además del volumen <i>postgres_data</i>. Los health checks controlan el orden real de disponibilidad. El despliegue se ejecutó en Amazon EC2 m7i-flex.large con Ubuntu 24.04, región us-east-2 y 40 GiB gp3. Dashboard usa el puerto 8080 y API el 8081. La IP no es elástica y puede cambiar al detener la instancia.</p>
+<p>EC2 es infraestructura como servicio: el equipo administra Ubuntu, Docker y la aplicación. No se usó ECS ni Kubernetes. Todos los componentes viven en una máquina; Docker los aísla, pero una falla del host afecta al conjunto. Esta elección simplifica la demostración y al mismo tiempo define el principal punto único de fallo.</p>
+<p>GitHub Actions ejecuta pruebas Maven, valida Compose, empaqueta y calcula checksum. Un runner autoalojado en EC2 despliega, espera health checks y verifica. Si falla, puede regresar al paquete anterior. Los valores sensibles se concentran en <i>PRODUCTION_ENV</i> y no deben imprimirse.</p>
+
+<h1>10. Pruebas y evidencia de calidad</h1>
+<p>La suite contiene 14 clases y 33 casos <i>@Test</i>. Se ejecuta sin iniciar Spring, Kafka, RabbitMQ o PostgreSQL, lo que mantiene las pruebas rápidas. Las pruebas de dominio cubren dinero, aceptación y rechazo, estados y premios. Las de servicios usan Mockito para verificar colaboraciones.</p>
+<p><i>BetServiceTest</i> comprueba que una apuesta válida debite, guarde la solicitud, cree el outbox y devuelva el saldo. <i>BetOutboxDispatcherTest</i> verifica publicación y marcado. <i>SettlementServiceTest</i> cubre ganancia, pérdida, reembolso y estados terminales. <i>EventProcessorTest</i> reconstruye secuencias, guarda auditoría, notifica y evita efectos repetidos.</p>
+<p>También se prueban tokens, cuentas, recargas, ruleta, simulación, dashboard y correos. La ausencia de <i>@SpringBootTest</i> es consciente para la capa unitaria, pero no reemplaza integración. La mejora natural es Testcontainers con Kafka, RabbitMQ y PostgreSQL, más pruebas HTTP/WebSocket de extremo a extremo.</p>
+
+<h1>11. Resultados</h1>
+<p>Una cuenta puede registrarse, iniciar sesión, recibir saldo inicial, apostar, observar el cierre, consultar historial y recibir el resultado por correo. Si gana, el premio se acredita; si pierde, queda registrado; si la apuesta llegó tarde, se rechaza y reembolsa una vez. La recarga genera comprobante y la ruleta mantiene una ronda común para todos.</p>
+<p>El logro principal no es solo la interfaz. <i>MatchAggregate</i> se prueba sin Spring; los puertos permiten cambiar adaptadores; el outbox cierra la brecha entre base y broker; y los identificadores permiten reprocesar. La ejecución en AWS demostró que el paquete sale del equipo local y opera sobre Linux con versiones, redes, volúmenes y arranque reproducibles.</p>
+
+<h1>12. Limitaciones y mejoras</h1>
+<ul>
+  <li>Incorporar HTTPS con dominio, certificado y proxy inverso; restringir CORS.</li>
+  <li>Separar infraestructura en varios nodos o servicios administrados.</li>
+  <li>Migrar Kafka de ZooKeeper a KRaft tras validar compatibilidad.</li>
+  <li>Añadir rate limiting, rotación de secretos, backups, métricas, alertas y trazas.</li>
+  <li>Reemplazar <i>ddl-auto update</i> por migraciones Flyway o Liquibase.</li>
+  <li>Agregar Testcontainers y escenarios de caída de broker, red y base de datos.</li>
+  <li>Formalizar recuperación ante desastres y manejo operativo de DLQ.</li>
+  <li>Si dejara de ser académico, integrar pagos certificados y requisitos legales.</li>
+</ul>
+
+<h1>13. Conclusiones</h1>
+<p>LiveBet demuestra que una interfaz dinámica solo es confiable cuando las reglas y la infraestructura cuentan la misma historia. El dominio impide transiciones inválidas; PostgreSQL protege movimientos locales; Kafka conserva hechos; RabbitMQ distribuye trabajos; y Docker ofrece un ambiente reproducible sobre Linux.</p>
+<p>La relación entre asignaturas no es decorativa. Los objetos definen una operación válida. El sistema distribuido decide cómo llega a otros procesos y cómo se repite sin duplicar efectos. El sistema operativo asigna CPU, memoria, archivos, red y aislamiento. Ignorar una capa vuelve frágil al conjunto.</p>
+<p>El proyecto cumple el propósito académico y ofrece una base razonable, pero conserva límites claros. Existe recuperación e idempotencia, no <i>exactly-once</i> global; existe separación por contenedores, no alta disponibilidad; existe SMTP con TLS, pero no HTTPS público. Precisar esas diferencias permite defender el trabajo con argumentos y plantear mejoras realistas.</p>
+
+<h1>Referencias y materiales consultados</h1>
+<p>Universidad Cooperativa de Colombia. <i>Material de clase de Sistemas Distribuidos</i>: Sistemas distribuidos; Kafka; RabbitMQ; virtualización y contenedores; tolerancia a fallos; teorema CAP, PACELC y replicación; contenedores Docker y API REST. Presentaciones suministradas, 2026.</p>
+<p>Universidad Cooperativa de Colombia. <i>Material de clase de Sistemas Operativos</i>: Sistemas operativos; gestor de memoria; gestor de archivos; gestor de entrada/salida; hardening de Ubuntu Server en AWS EC2. Presentaciones suministradas, 2026.</p>
+<p>Grupo 3. <i>Guía de estudio LiveBet para cuatro personas</i>. Documento interno, 2026.</p>
+<p>Grupo 3. Repositorio LiveBet: README y documentación de arquitectura, decisiones técnicas, datos, pruebas, operación, seguridad, API, eventos, despliegue AWS y pipeline. Versión revisada el 20 de noviembre de 2026.</p>
+<p>Cursos de referencia: A_Programa_Orientada_a_Objetos_2620_10707; A_Sistemas_Distribuidos_2620_10703; A_Sistemas_Operativos_2620_10706. Campus Virtual UCC.</p>
+
+<h1 class="page">Anexo. Recorrido técnico de una apuesta</h1>
+<ol>
+  <li>El navegador envía <i>POST /api/bets</i> con token, partido, selección y monto.</li>
+  <li><i>BearerTokenFilter</i> valida la sesión y el controlador recibe un DTO validado.</li>
+  <li><i>BetService</i> localiza la cuenta, comprueba saldo y ejecuta el débito.</li>
+  <li>La transacción guarda solicitud y evento pendiente en el outbox.</li>
+  <li><i>BetOutboxDispatcher</i> publica <b>BET_PLACED</b> con <i>matchId</i> como clave.</li>
+  <li><i>results-engine</i> pide a <i>MatchAggregate</i> registrar la apuesta.</li>
+  <li>RabbitMQ entrega el comando diferido al terminar el tiempo.</li>
+  <li><i>match-simulator</i> publica <b>MATCH_FINISHED</b>.</li>
+  <li>El motor liquida; <i>SettlementService</i> acredita o marca estado final.</li>
+  <li>RabbitMQ distribuye al dashboard y al correo.</li>
+  <li>El navegador recibe WebSocket y el usuario recibe la notificación.</li>
+</ol>
+<p class="small">Documento elaborado a partir del repositorio ejecutable, su documentación técnica y el material de clase entregado por el usuario. Las afirmaciones sobre implementación corresponden a la versión revisada; las recomendaciones se presentan expresamente como mejoras.</p>
+</body>
+</html>
