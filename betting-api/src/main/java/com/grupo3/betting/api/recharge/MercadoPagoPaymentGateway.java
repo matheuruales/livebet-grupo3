@@ -31,6 +31,7 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
     public PaymentOrder createOrder(String reference, String idempotencyKey, BigDecimal amount, String payerEmail) {
         properties.requireCheckoutReady();
         String value = money(amount);
+        String itemCode = itemCode(reference);
         var online = OrderOnlineConfig.builder()
                 .successUrl(properties.successUrl())
                 .pendingUrl(properties.pendingUrl())
@@ -48,7 +49,7 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
                 .payer(OrderPayerRequest.builder().email(payerEmail).build())
                 .config(OrderConfigRequest.builder().statementDescriptor("LIVEBET").online(online).build())
                 .items(List.of(OrderItemRequest.builder()
-                        .externalCode(reference)
+                        .externalCode(itemCode)
                         .title("Recarga de saldo LiveBet")
                         .description("Fondos para la cuenta LiveBet")
                         .quantity(1)
@@ -101,6 +102,11 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
      */
     private static String money(BigDecimal amount) {
         return amount.stripTrailingZeros().toPlainString();
+    }
+
+    /** Mercado Pago limita el código de cada ítem a 30 caracteres. */
+    private static String itemCode(String reference) {
+        return reference.length() <= 30 ? reference : reference.substring(0, 30);
     }
 
     @FunctionalInterface
