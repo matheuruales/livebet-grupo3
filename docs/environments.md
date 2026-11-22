@@ -24,3 +24,5 @@ El dominio público de producción es `livebet.beauty`; `www.livebet.beauty` red
 ## Docker
 
 En desarrollo se configura `COMPOSE_PROJECT_NAME=livebet-development`; por eso los contenedores aparecen identificados como el entorno de desarrollo. Producción sigue conservando sus contenedores existentes para evitar una interrupción durante el cambio.
+
+El chequeo interno de la API en desarrollo se ejecuta desde su propio runner mediante `127.0.0.1:8081`. El puerto no se expone a Internet: el acceso público entra exclusivamente por HTTPS.
