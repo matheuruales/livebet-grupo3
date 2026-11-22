@@ -19,6 +19,8 @@ Los valores privados se guardan como secretos propios de cada GitHub Environment
 
 Producción usa Mercado Pago. Desarrollo deja Mercado Pago apagado y habilita recargas simuladas, de modo que no se puedan crear cobros reales durante pruebas.
 
+El dominio público de producción es `livebet.beauty`; `www.livebet.beauty` redirige al mismo servicio. La dirección histórica basada en `nip.io` se mantiene como alternativa durante la transición del certificado HTTPS.
+
 ## Docker
 
 En desarrollo se configura `COMPOSE_PROJECT_NAME=livebet-development`; por eso los contenedores aparecen identificados como el entorno de desarrollo. Producción sigue conservando sus contenedores existentes para evitar una interrupción durante el cambio.
