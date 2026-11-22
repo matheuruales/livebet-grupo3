@@ -29,7 +29,7 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
 
     @Override
     public PaymentOrder createOrder(String reference, String idempotencyKey, BigDecimal amount, String payerEmail) {
-        properties.requireReady();
+        properties.requireCheckoutReady();
         String value = money(amount);
         var online = OrderOnlineConfig.builder()
                 .successUrl(properties.successUrl())
@@ -60,7 +60,7 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
 
     @Override
     public PaymentOrder getOrder(String orderId) {
-        properties.requireReady();
+        properties.requireCheckoutReady();
         return execute(() -> client.get(orderId, options(null)));
     }
 

@@ -97,21 +97,41 @@ jobs:
         env:
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
           API_URL: ${{ vars.API_URL }}
+          LIVEBET_DOMAIN: ${{ vars.LIVEBET_DOMAIN }}
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           test -n "$DASHBOARD_URL"
           test -n "$API_URL"
+          test -n "$LIVEBET_DOMAIN"
           test -n "$PRODUCTION_ENV"
+          test -n "$MERCADOPAGO_ACCESS_TOKEN"
 
       - name: Preparar configuración privada
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+          LIVEBET_DOMAIN: ${{ vars.LIVEBET_DOMAIN }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+          MERCADOPAGO_WEBHOOK_SECRET: ${{ secrets.MERCADOPAGO_WEBHOOK_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$PRODUCTION_ENV" > /tmp/livebet-production.env
+          for key in LIVEBET_DOMAIN MERCADOPAGO_ENABLED MERCADOPAGO_ACCESS_TOKEN MERCADOPAGO_WEBHOOK_SECRET MERCADOPAGO_SUCCESS_URL MERCADOPAGO_PENDING_URL MERCADOPAGO_FAILURE_URL SIMULATED_PAYMENTS_ENABLED; do
+            sed -i "/^${key}=/d" /tmp/livebet-production.env
+          done
+          {
+            printf 'LIVEBET_DOMAIN=%s\n' "$LIVEBET_DOMAIN"
+            printf 'MERCADOPAGO_ENABLED=true\n'
+            printf 'MERCADOPAGO_ACCESS_TOKEN=%s\n' "$MERCADOPAGO_ACCESS_TOKEN"
+            printf 'MERCADOPAGO_WEBHOOK_SECRET=%s\n' "${MERCADOPAGO_WEBHOOK_SECRET:-}"
+            printf 'MERCADOPAGO_SUCCESS_URL=https://%s/?payment=success\n' "$LIVEBET_DOMAIN"
+            printf 'MERCADOPAGO_PENDING_URL=https://%s/?payment=pending\n' "$LIVEBET_DOMAIN"
+            printf 'MERCADOPAGO_FAILURE_URL=https://%s/?payment=failure\n' "$LIVEBET_DOMAIN"
+            printf 'SIMULATED_PAYMENTS_ENABLED=false\n'
+          } >> /tmp/livebet-production.env
 
       - name: Desplegar versión con reversión automática
         env:
@@ -140,6 +160,12 @@ jobs:
           set -euo pipefail
           curl --fail --retry 12 --retry-all-errors --retry-delay 5 "$DASHBOARD_URL/actuator/health"
           curl --fail --retry 12 --retry-all-errors --retry-delay 5 "$API_URL/actuator/health"
+
+      - name: Mostrar diagnóstico del proxy HTTPS
+        if: always()
+        run: |
+          sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          sudo docker logs --tail=100 "$(sudo docker ps --format '{{.Names}}' | grep -E 'edge-proxy' | head -n 1)" || true
 
       - name: Resumen del despliegue
         run: |

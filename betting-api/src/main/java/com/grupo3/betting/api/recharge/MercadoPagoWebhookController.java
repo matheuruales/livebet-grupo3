@@ -23,7 +23,7 @@ class MercadoPagoWebhookController {
                                  @RequestParam(name = "type", required = false) String type,
                                  @RequestHeader(name = "x-signature") String signature,
                                  @RequestHeader(name = "x-request-id") String requestId) {
-        properties.requireReady();
+        properties.requireWebhookReady();
         if (type != null && !"order".equalsIgnoreCase(type)) return ResponseEntity.ok().build();
         try {
             WebhookSignatureValidator.validate(signature, requestId, orderId,

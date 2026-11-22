@@ -27,18 +27,25 @@ class MercadoPagoProperties {
     public void setPendingUrl(String pendingUrl) { this.pendingUrl = pendingUrl; }
     public void setFailureUrl(String failureUrl) { this.failureUrl = failureUrl; }
 
-    void requireReady() {
+    void requireCheckoutReady() {
         if (!enabled) throw new PaymentGatewayUnavailableException("Mercado Pago todavía no está habilitado");
-        if (blank(accessToken) || blank(webhookSecret)) {
-            throw new PaymentGatewayUnavailableException("Faltan las credenciales privadas de Mercado Pago");
+        if (blank(accessToken)) {
+            throw new PaymentGatewayUnavailableException("Falta la credencial privada de Mercado Pago");
         }
         if (!validUrl(successUrl) || !validUrl(pendingUrl) || !validUrl(failureUrl)) {
             throw new PaymentGatewayUnavailableException("Configura las URL de retorno de Mercado Pago");
         }
     }
 
+    void requireWebhookReady() {
+        requireCheckoutReady();
+        if (blank(webhookSecret)) {
+            throw new PaymentGatewayUnavailableException("Falta la firma secreta del webhook de Mercado Pago");
+        }
+    }
+
     boolean ready() {
-        return enabled && !blank(accessToken) && !blank(webhookSecret)
+        return enabled && !blank(accessToken)
                 && validUrl(successUrl) && validUrl(pendingUrl) && validUrl(failureUrl);
     }
 

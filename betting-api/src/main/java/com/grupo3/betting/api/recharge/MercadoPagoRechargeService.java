@@ -33,7 +33,7 @@ class MercadoPagoRechargeService {
 
     @Transactional(noRollbackFor = PaymentGatewayUnavailableException.class)
     CheckoutView createCheckout(String userId, CheckoutRequest request) {
-        properties.requireReady();
+        properties.requireCheckoutReady();
         var user = users.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
         var recharge = recharges.saveAndFlush(new PaymentRecharge(userId, request.amount()));
@@ -47,10 +47,15 @@ class MercadoPagoRechargeService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     CheckoutView find(String userId, String reference) {
         var recharge = recharges.findByReferenceAndUserId(reference, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Recarga no encontrada"));
+        // El retorno del checkout también confirma el estado directamente contra Mercado Pago.
+        // Así el saldo no queda pendiente si una notificación externa se retrasa.
+        if (recharge.providerOrderId() != null && recharge.status() == PaymentRecharge.Status.PENDING) {
+            processOrder(recharge.providerOrderId());
+        }
         var user = users.findById(userId).orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
         return view(recharge, user.balance());
     }
