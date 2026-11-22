@@ -95,7 +95,13 @@ class MercadoPagoPaymentGateway implements PaymentGateway {
         return value == null || value.isBlank() ? BigDecimal.ZERO : new BigDecimal(value);
     }
 
-    private static String money(BigDecimal amount) { return amount.setScale(2).toPlainString(); }
+    /**
+     * COP no tiene fracciones. Mercado Pago rechaza importes como "50000.00"
+     * para esta moneda, por lo que se envía el valor entero "50000".
+     */
+    private static String money(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
+    }
 
     @FunctionalInterface
     private interface OrderCall { Order run() throws MPException, MPApiException; }
