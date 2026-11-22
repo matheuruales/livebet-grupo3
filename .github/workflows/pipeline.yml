@@ -133,7 +133,7 @@ jobs:
           {
             printf 'LIVEBET_DOMAIN=%s\n' "$LIVEBET_DOMAIN"
             if [[ "$DEPLOYMENT_ENV" == "production" && "$LIVEBET_DOMAIN" == "livebet.beauty" ]]; then
-              printf 'LIVEBET_DOMAINS=%s,www.%s,livebet.18.224.52.92.nip.io\n' "$LIVEBET_DOMAIN" "$LIVEBET_DOMAIN"
+              printf 'LIVEBET_DOMAINS=%s, www.%s, livebet.18.224.52.92.nip.io\n' "$LIVEBET_DOMAIN" "$LIVEBET_DOMAIN"
             else
               printf 'LIVEBET_DOMAINS=%s\n' "$LIVEBET_DOMAIN"
             fi
