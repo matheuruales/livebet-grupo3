@@ -17,7 +17,7 @@ services:
     image: caddy:2.10-alpine
     restart: unless-stopped
     environment:
-      LIVEBET_DOMAIN: ${LIVEBET_DOMAIN:-livebet.18.224.52.92.nip.io}
+      LIVEBET_DOMAINS: ${LIVEBET_DOMAINS:-livebet.18.224.52.92.nip.io}
     ports: ["80:80", "443:443"]
     volumes:
       - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro

@@ -1,4 +1,4 @@
-{$LIVEBET_DOMAIN:livebet.18.224.52.92.nip.io} {
+{$LIVEBET_DOMAINS:livebet.18.224.52.92.nip.io} {
   encode zstd gzip
 
   @betting_api path /api/auth* /api/bets* /api/recharges* /api/roulette* /api/admin*

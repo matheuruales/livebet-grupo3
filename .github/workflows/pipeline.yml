@@ -3,7 +3,7 @@ name: LiveBet CI/CD
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
@@ -74,13 +74,17 @@ jobs:
           retention-days: 14
 
   deploy:
-    name: Desplegar en AWS
-    if: github.event_name != 'pull_request'
+    name: Desplegar en ${{ github.ref_name == 'main' && 'producción' || 'desarrollo' }}
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
     needs: package
-    runs-on: [self-hosted, linux, x64, livebet-production]
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ github.ref_name == 'main' && 'livebet-production' || 'livebet-development' }}
     timeout-minutes: 35
     environment:
-      name: production
+      name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
       url: ${{ vars.DASHBOARD_URL }}
     permissions:
       contents: read
@@ -93,8 +97,9 @@ jobs:
         with:
           name: livebet-release-${{ github.sha }}
 
-      - name: Validar configuración de producción
+      - name: Validar configuración del entorno
         env:
+          DEPLOYMENT_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
           API_URL: ${{ vars.API_URL }}
           LIVEBET_DOMAIN: ${{ vars.LIVEBET_DOMAIN }}
@@ -106,10 +111,13 @@ jobs:
           test -n "$API_URL"
           test -n "$LIVEBET_DOMAIN"
           test -n "$PRODUCTION_ENV"
-          test -n "$MERCADOPAGO_ACCESS_TOKEN"
+          if [[ "$DEPLOYMENT_ENV" == "production" ]]; then
+            test -n "$MERCADOPAGO_ACCESS_TOKEN"
+          fi
 
       - name: Preparar configuración privada
         env:
+          DEPLOYMENT_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
           LIVEBET_DOMAIN: ${{ vars.LIVEBET_DOMAIN }}
           MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
@@ -119,18 +127,29 @@ jobs:
           set -euo pipefail
           umask 077
           printf '%s\n' "$PRODUCTION_ENV" > /tmp/livebet-production.env
-          for key in LIVEBET_DOMAIN MERCADOPAGO_ENABLED MERCADOPAGO_ACCESS_TOKEN MERCADOPAGO_WEBHOOK_SECRET MERCADOPAGO_SUCCESS_URL MERCADOPAGO_PENDING_URL MERCADOPAGO_FAILURE_URL SIMULATED_PAYMENTS_ENABLED; do
+          for key in LIVEBET_DOMAIN LIVEBET_DOMAINS MERCADOPAGO_ENABLED MERCADOPAGO_ACCESS_TOKEN MERCADOPAGO_WEBHOOK_SECRET MERCADOPAGO_SUCCESS_URL MERCADOPAGO_PENDING_URL MERCADOPAGO_FAILURE_URL SIMULATED_PAYMENTS_ENABLED; do
             sed -i "/^${key}=/d" /tmp/livebet-production.env
           done
           {
             printf 'LIVEBET_DOMAIN=%s\n' "$LIVEBET_DOMAIN"
-            printf 'MERCADOPAGO_ENABLED=true\n'
-            printf 'MERCADOPAGO_ACCESS_TOKEN=%s\n' "$MERCADOPAGO_ACCESS_TOKEN"
+            if [[ "$DEPLOYMENT_ENV" == "production" && "$LIVEBET_DOMAIN" == "livebet.beauty" ]]; then
+              printf 'LIVEBET_DOMAINS=%s,www.%s,livebet.18.224.52.92.nip.io\n' "$LIVEBET_DOMAIN" "$LIVEBET_DOMAIN"
+            else
+              printf 'LIVEBET_DOMAINS=%s\n' "$LIVEBET_DOMAIN"
+            fi
             printf 'MERCADOPAGO_WEBHOOK_SECRET=%s\n' "${MERCADOPAGO_WEBHOOK_SECRET:-}"
             printf 'MERCADOPAGO_SUCCESS_URL=https://%s/?payment=success\n' "$LIVEBET_DOMAIN"
             printf 'MERCADOPAGO_PENDING_URL=https://%s/?payment=pending\n' "$LIVEBET_DOMAIN"
             printf 'MERCADOPAGO_FAILURE_URL=https://%s/?payment=failure\n' "$LIVEBET_DOMAIN"
-            printf 'SIMULATED_PAYMENTS_ENABLED=false\n'
+            if [[ "$DEPLOYMENT_ENV" == "production" ]]; then
+              printf 'MERCADOPAGO_ENABLED=true\n'
+              printf 'MERCADOPAGO_ACCESS_TOKEN=%s\n' "$MERCADOPAGO_ACCESS_TOKEN"
+              printf 'SIMULATED_PAYMENTS_ENABLED=false\n'
+            else
+              printf 'MERCADOPAGO_ENABLED=false\n'
+              printf 'SIMULATED_PAYMENTS_ENABLED=true\n'
+              printf 'COMPOSE_PROJECT_NAME=livebet-development\n'
+            fi
           } >> /tmp/livebet-production.env
 
       - name: Desplegar versión con reversión automática
@@ -170,7 +189,7 @@ jobs:
       - name: Resumen del despliegue
         run: |
           {
-            echo "## LiveBet desplegado"
+            echo "## LiveBet desplegado en ${{ github.ref_name == 'main' && 'producción' || 'desarrollo' }}"
             echo "- Commit: \`$GITHUB_SHA\`"
             echo "- Dashboard: ${{ vars.DASHBOARD_URL }}"
             echo "- API: ${{ vars.API_URL }}"
